@@ -30,14 +30,17 @@
 	// Free-drag state (position in time + track).
 	let dragId = $state<string | null>(null);
 	let dragActive = $state(false);
+	/** Lane count frozen for the duration of a clip drag (occupied + 1 spare). */
+	let dragLaneCount = $state(0);
 	let justDragged = false; // suppress the click that follows a drag
 
 	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
-	// Lanes rendered top-to-bottom; one spare lane on top to promote a clip into.
+	// Lanes rendered top-to-bottom. A spare drop lane is only exposed while a
+	// clip is being dragged; otherwise just the occupied lanes are shown.
 	const laneIndices = $derived.by(() => {
-		const total = editor.trackCount + 1; // +1 spare lane on top
-		return Array.from({ length: total }, (_, i) => total - 1 - i);
+		const total = dragActive ? dragLaneCount : Math.max(1, editor.trackCount);
+		return Array.from({ length: Math.max(1, total) }, (_, i) => total - 1 - i);
 	});
 
 	// Each clip placed by absolute start (x) and track (lane).
@@ -91,16 +94,6 @@
 		return (pointerToContentX(clientX) - TIMELINE.gutterPx) / editor.pxPerSec;
 	}
 
-	// Which track lane the pointer is over (top lane = highest index).
-	function trackFromClientY(clientY: number): number {
-		if (!lanesEl) return 0;
-		const rect = lanesEl.getBoundingClientRect();
-		const count = laneIndices.length;
-		const h = rect.height / count;
-		const i = Math.max(0, Math.min(count - 1, Math.floor((clientY - rect.top) / h)));
-		return laneIndices[i];
-	}
-
 	// Snap a timeline position to 0, the playhead, or any other clip edge.
 	function snapSeconds(sec: number, excludeId: string | null): number {
 		if (!editor.snapping) return Math.max(0, sec);
@@ -152,6 +145,13 @@
 		if (!clip) return;
 		const origStart = clip.start;
 		const origLeftPx = origStart * editor.pxPerSec;
+		const startTrack = clip.track;
+		const trackCount0 = editor.trackCount;
+		// Fixed lane height (px) captured before any spare lane is added, so the
+		// vertical mapping stays stable as tracks change during the drag.
+		const laneH = lanesEl
+			? lanesEl.getBoundingClientRect().height / Math.max(1, trackCount0)
+			: 64;
 		dragId = id;
 		dragActive = false;
 		editor.beginTransaction();
@@ -159,14 +159,20 @@
 		const onMove = (ev: PointerEvent) => {
 			const dx = ev.clientX - startX;
 			const dy = ev.clientY - startY;
-			if (!dragActive && Math.hypot(dx, dy) > REORDER.dragThresholdPx) dragActive = true;
+			if (!dragActive && Math.hypot(dx, dy) > REORDER.dragThresholdPx) {
+				dragActive = true;
+				dragLaneCount = trackCount0 + 1; // expose exactly one spare drop lane
+			}
 			if (!dragActive) return;
 			const cx = ev.clientX;
 			const cy = ev.clientY;
 			cancelAnimationFrame(raf);
 			raf = requestAnimationFrame(() => {
 				const newStart = snapSeconds((origLeftPx + (cx - startX)) / editor.pxPerSec, id);
-				editor.moveClipTo(id, newStart, trackFromClientY(cy));
+				// Move up by whole lanes; promote by at most one new track per drag.
+				const laneDelta = Math.round((startY - cy) / laneH);
+				const newTrack = Math.max(0, Math.min(trackCount0, startTrack + laneDelta));
+				editor.moveClipTo(id, newStart, newTrack);
 			});
 		};
 		const onUp = () => {
@@ -263,7 +269,7 @@
 			<!-- Stacked track lanes (top lane is the spare for promotion) -->
 			<div class="lanes" bind:this={lanesEl}>
 				{#each laneIndices as t (t)}
-					<div class="lane" class:spare={t === editor.trackCount}>
+					<div class="lane" class:spare={dragActive && t === dragLaneCount - 1}>
 						{#each clipsOnTrack(t) as p (p.clip.id)}
 							<div
 								class="clip"

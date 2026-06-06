@@ -150,14 +150,14 @@
 		justify-content: center;
 	}
 
-	/* The output frame: a letterboxed canvas at the project aspect ratio. */
+	/* The output frame: a letterboxed canvas at the project aspect ratio.
+	   Square corners: it represents the real (rectangular) output video. */
 	.frame {
 		position: relative;
 		max-width: 100%;
 		max-height: 100%;
 		height: 100%;
 		background: #000000;
-		border-radius: var(--katana-radius-md);
 		overflow: hidden;
 	}
 
