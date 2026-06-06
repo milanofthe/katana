@@ -1,0 +1,7 @@
+/*
+ * Fonts, self-hosted via Fontsource (offline, no CDN).
+ * Plus Jakarta Sans (UI) + JetBrains Mono (timecodes / numeric readouts),
+ * referenced by --snip-font-* in tokens.css.
+ */
+@import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/jetbrains-mono';

@@ -1,0 +1,115 @@
+/*
+ * Snip design tokens — single source of truth for all CSS.
+ *
+ * Every color, size, space, radius, font and motion value lives here as a
+ * custom property. Components must reference var(--snip-*) only; never hardcode
+ * a literal. JS/Canvas consumers (e.g. the timeline renderer) read the same
+ * values from theme.ts — keep the two in sync.
+ *
+ * Theme: Vermillion · dark. Palette kept deliberately small.
+ */
+
+:root {
+	/* ── Surfaces ──────────────────────────────────────────────── */
+	--snip-bg-base: #0e0e10; /* app shell, deepest layer */
+	--snip-bg-surface: #18181b; /* panels, toolbars, tracks */
+	--snip-bg-elevated: #212126; /* cards, clips, popovers */
+	--snip-bg-overlay: #2a2a30; /* hover fills, inputs */
+
+	/* ── Borders ───────────────────────────────────────────────── */
+	--snip-border: #2e2e34;
+	--snip-border-strong: #3a3a42;
+	--snip-border-width: 1px;
+	--snip-border-width-thick: 2px;
+
+	/* ── Text ──────────────────────────────────────────────────── */
+	--snip-text-primary: #ececee;
+	--snip-text-secondary: #a8a8b0;
+	--snip-text-muted: #6e6e78;
+
+	/* ── Accent · Vermillion (the blade) ───────────────────────── */
+	--snip-accent: #ff5c4d;
+	--snip-accent-hover: #ff7468;
+	--snip-accent-muted: rgba(255, 92, 77, 0.14); /* selection, subtle fill */
+	--snip-accent-contrast: #2a0e0a; /* text/icons on accent surfaces */
+
+	/* ── Semantic ──────────────────────────────────────────────── */
+	--snip-success: #3dd68c;
+	--snip-danger: #e5484d;
+
+	/* ── Typography ────────────────────────────────────────────── */
+	--snip-font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, sans-serif;
+	--snip-font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
+
+	--snip-text-xs: 0.75rem; /* 12px — caption */
+	--snip-text-sm: 0.8125rem; /* 13px — label */
+	--snip-text-base: 0.875rem; /* 14px — body / UI default */
+	--snip-text-md: 1rem; /* 16px — emphasis */
+	--snip-text-lg: 1.25rem; /* 20px — heading */
+	--snip-text-xl: 1.625rem; /* 26px — display */
+
+	--snip-weight-regular: 400;
+	--snip-weight-medium: 500;
+	--snip-weight-semibold: 600;
+
+	--snip-leading-none: 1;
+	--snip-leading-tight: 1.2;
+	--snip-leading-normal: 1.5;
+
+	--snip-tracking-tight: -0.01em;
+	--snip-tracking-normal: 0;
+	--snip-tracking-wide: 0.02em;
+
+	/* ── Spacing · 4px base ────────────────────────────────────── */
+	--snip-space-px: 1px;
+	--snip-space-1: 0.25rem; /* 4 */
+	--snip-space-2: 0.5rem; /* 8 */
+	--snip-space-3: 0.75rem; /* 12 */
+	--snip-space-4: 1rem; /* 16 */
+	--snip-space-5: 1.25rem; /* 20 */
+	--snip-space-6: 1.5rem; /* 24 */
+	--snip-space-8: 2rem; /* 32 */
+	--snip-space-10: 2.5rem; /* 40 */
+	--snip-space-12: 3rem; /* 48 */
+	--snip-space-16: 4rem; /* 64 */
+
+	/* ── Radii ─────────────────────────────────────────────────── */
+	--snip-radius-sm: 4px;
+	--snip-radius-md: 6px;
+	--snip-radius-lg: 10px;
+	--snip-radius-full: 9999px;
+
+	/* ── Control heights ───────────────────────────────────────── */
+	--snip-control-sm: 28px;
+	--snip-control-md: 32px;
+	--snip-control-lg: 40px;
+
+	/* ── Icon sizes ────────────────────────────────────────────── */
+	--snip-icon-sm: 16px;
+	--snip-icon-md: 18px;
+	--snip-icon-lg: 20px;
+
+	/* ── Elevation ─────────────────────────────────────────────── */
+	--snip-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+	--snip-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+	--snip-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+	/* ── Motion ────────────────────────────────────────────────── */
+	--snip-duration-fast: 140ms;
+	--snip-duration-base: 220ms;
+	--snip-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--snip-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+	/* ── Z-index scale ─────────────────────────────────────────── */
+	--snip-z-timeline: 10;
+	--snip-z-dropdown: 100;
+	--snip-z-overlay: 300;
+	--snip-z-modal: 400;
+	--snip-z-tooltip: 600;
+
+	/* ── Tooltip ───────────────────────────────────────────────── */
+	--snip-tooltip-bg: #000000;
+	--snip-tooltip-text: #ececee;
+	--snip-tooltip-delay: 400ms;
+	--snip-tooltip-offset: var(--snip-space-2);
+}

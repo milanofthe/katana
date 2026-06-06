@@ -1,0 +1,29 @@
+/*
+ * Snip global stylesheet — the single entry imported once in +layout.svelte.
+ * Order matters: fonts → tokens → reset → base.
+ */
+@import './fonts.css';
+@import './tokens.css';
+@import './reset.css';
+
+html {
+	color-scheme: dark;
+}
+
+body {
+	background: var(--snip-bg-base);
+	color: var(--snip-text-primary);
+	font-family: var(--snip-font-sans);
+	font-size: var(--snip-text-base);
+	font-weight: var(--snip-weight-regular);
+	line-height: var(--snip-leading-normal);
+	letter-spacing: var(--snip-tracking-normal);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+/* Tabular, monospaced numerals for timecodes and numeric readouts. */
+.snip-mono {
+	font-family: var(--snip-font-mono);
+	font-variant-numeric: tabular-nums;
+}
