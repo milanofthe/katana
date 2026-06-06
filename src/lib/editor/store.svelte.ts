@@ -1,5 +1,11 @@
 // Central reactive editor state (Svelte 5 runes). Single source of truth for
-// the timeline EDL, playback and view. Editor components bind to this directly.
+// the multi-track timeline, compositing and playback. Editor components bind to
+// this directly.
+//
+// Time model: every clip has an absolute `start` on a shared master timeline
+// (seconds) and a `track` (z-order lane, higher = rendered on top). Clips may
+// overlap in time; the master playhead drives a single clock and every visible
+// clip syncs its <video> to it.
 import { TIMELINE, CLIP } from '$lib/constants';
 
 export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
@@ -27,6 +33,10 @@ export interface Clip {
 	/** Trim handles, in seconds into the source media. */
 	inPoint: number;
 	outPoint: number;
+	/** Absolute start on the master timeline, in seconds. */
+	start: number;
+	/** Z-order lane: 0 = base, higher = composited on top. */
+	track: number;
 	/** Source aspect ratio (width / height) for AR-correct filmstrip frames. */
 	aspectRatio: number;
 	/** Preview frames captured evenly across the source (filmstrip thumbnails). */
@@ -53,12 +63,17 @@ export function clipDuration(c: Clip): number {
 	return clipSourceSpan(c) / (c.speed || 1);
 }
 
+/** Absolute timeline time where the clip ends (seconds). */
+export function clipEnd(c: Clip): number {
+	return c.start + clipDuration(c);
+}
+
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 class EditorStore {
 	clips = $state<Clip[]>([]);
 	selectedId = $state<string | null>(null);
-	/** Playhead position within the selected clip, in timeline seconds. */
+	/** Master playhead, absolute timeline seconds. */
 	playhead = $state(0);
 	playing = $state(false);
 	snapping = $state(true);
@@ -76,25 +91,46 @@ class EditorStore {
 	/** Project output format. */
 	aspectRatio = $state<AspectRatio>('original');
 
-	totalDuration = $derived(this.clips.reduce((sum, c) => sum + clipDuration(c), 0));
+	/** Project length: the latest clip end across all tracks. */
+	totalDuration = $derived(this.clips.reduce((max, c) => Math.max(max, clipEnd(c)), 0));
 	selectedClip = $derived(this.clips.find((c) => c.id === this.selectedId) ?? null);
-	activeDuration = $derived(this.selectedClip ? clipDuration(this.selectedClip) : 0);
 
-	/** Timeline offset (seconds) where the selected clip starts. */
-	selectedStart = $derived.by(() => {
-		let acc = 0;
-		for (const c of this.clips) {
-			if (c.id === this.selectedId) return acc;
-			acc += clipDuration(c);
-		}
-		return 0;
-	});
-	/** Playhead position along the whole timeline, in seconds. */
-	globalPlayhead = $derived(this.selectedStart + this.playhead);
+	/** Number of occupied lanes (0 if empty). */
+	trackCount = $derived(
+		this.clips.length ? Math.max(...this.clips.map((c) => c.track)) + 1 : 0
+	);
 
-	addClip(clip: Clip) {
-		this.clips.push(clip);
-		if (this.selectedId === null) this.select(clip.id);
+	/** Clips visible at the playhead, ordered base-first (track ascending). */
+	activeClips = $derived(
+		this.clips
+			.filter((c) => this.playhead >= c.start && this.playhead < clipEnd(c))
+			.sort((a, b) => a.track - b.track || a.start - b.start)
+	);
+
+	/** Clips in stable timeline order (by start, then track) for prev/next nav. */
+	private ordered() {
+		return [...this.clips].sort((a, b) => a.start - b.start || a.track - b.track);
+	}
+
+	/** End of the content on a track (seconds); 0 if the track is empty. */
+	private trackEnd(track: number): number {
+		return this.clips.reduce((max, c) => (c.track === track ? Math.max(max, clipEnd(c)) : max), 0);
+	}
+
+	/** Local playhead time within a clip (seconds from its start). */
+	localTime(c: Clip): number {
+		return this.playhead - c.start;
+	}
+
+	/**
+	 * Add a clip. `start`/`track` are optional: by default it lands on the base
+	 * track right after the last clip there, so sequential imports line up.
+	 */
+	addClip(clip: Omit<Clip, 'start' | 'track'> & Partial<Pick<Clip, 'start' | 'track'>>) {
+		const track = clip.track ?? 0;
+		const full: Clip = { ...clip, track, start: clip.start ?? this.trackEnd(track) };
+		this.clips.push(full);
+		if (this.selectedId === null) this.select(full.id);
 	}
 
 	removeClip(id: string) {
@@ -103,7 +139,7 @@ class EditorStore {
 		this.clips.splice(idx, 1);
 		if (this.selectedId === id) {
 			const next = this.clips[idx] ?? this.clips[idx - 1] ?? null;
-			this.select(next?.id ?? null);
+			this.selectedId = next?.id ?? null;
 		}
 	}
 
@@ -111,109 +147,128 @@ class EditorStore {
 		if (this.selectedId) this.removeClip(this.selectedId);
 	}
 
+	/** Select a clip; leaves the master playhead and playback untouched. */
 	select(id: string | null) {
 		this.selectedId = id;
-		this.playhead = 0;
-		this.playing = false;
 	}
 
 	selectPrev() {
-		const idx = this.clips.findIndex((c) => c.id === this.selectedId);
-		if (idx > 0) this.select(this.clips[idx - 1].id);
+		const order = this.ordered();
+		const idx = order.findIndex((c) => c.id === this.selectedId);
+		if (idx > 0) this.select(order[idx - 1].id);
 	}
 
 	selectNext() {
-		const idx = this.clips.findIndex((c) => c.id === this.selectedId);
-		if (idx >= 0 && idx < this.clips.length - 1) this.select(this.clips[idx + 1].id);
+		const order = this.ordered();
+		const idx = order.findIndex((c) => c.id === this.selectedId);
+		if (idx >= 0 && idx < order.length - 1) this.select(order[idx + 1].id);
+	}
+
+	// ── Master playback clock ───────────────────────────────────
+	private raf = 0;
+	private lastTs = 0;
+
+	play() {
+		if (this.playing || this.clips.length === 0) return;
+		// Restart from the top if parked at the very end.
+		if (this.playhead >= this.totalDuration - 0.02) this.playhead = 0;
+		this.playing = true;
+		this.lastTs = performance.now();
+		const step = () => {
+			if (!this.playing) return;
+			const now = performance.now();
+			const dt = (now - this.lastTs) / 1000;
+			this.lastTs = now;
+			const t = this.playhead + dt;
+			if (t >= this.totalDuration) {
+				this.playhead = this.totalDuration;
+				this.playing = false;
+				return;
+			}
+			this.playhead = t;
+			this.raf = requestAnimationFrame(step);
+		};
+		this.raf = requestAnimationFrame(step);
+	}
+
+	pause() {
+		this.playing = false;
+		cancelAnimationFrame(this.raf);
 	}
 
 	togglePlay() {
-		if (!this.selectedClip) return;
-		// Starting from the very end of the timeline? Rewind first.
-		if (!this.playing && this.globalPlayhead >= this.totalDuration - 0.05) {
-			this.seekGlobal(0);
-		}
-		this.playing = !this.playing;
-	}
-
-	/** Advance to the next clip for continuous playback. False at the last clip. */
-	advance(): boolean {
-		const idx = this.clips.findIndex((c) => c.id === this.selectedId);
-		if (idx >= 0 && idx < this.clips.length - 1) {
-			this.selectedId = this.clips[idx + 1].id;
-			this.playhead = 0;
-			return true;
-		}
-		return false;
+		if (this.playing) this.pause();
+		else this.play();
 	}
 
 	toggleSnap() {
 		this.snapping = !this.snapping;
 	}
 
-	/** Seek within the active clip (timeline seconds). */
+	/** Seek the master playhead to an absolute timeline position. */
 	seek(seconds: number) {
-		this.playhead = clamp(seconds, 0, this.activeDuration);
+		this.playhead = clamp(seconds, 0, this.totalDuration);
 	}
 
-	/** Seek to a position on the whole timeline; selects the clip under it. */
-	seekGlobal(globalSeconds: number) {
-		if (this.clips.length === 0) return;
-		const t = Math.max(0, globalSeconds);
-		let acc = 0;
-		for (let i = 0; i < this.clips.length; i++) {
-			const c = this.clips[i];
-			const d = clipDuration(c);
-			if (t < acc + d || i === this.clips.length - 1) {
-				this.selectedId = c.id;
-				this.playhead = clamp(t - acc, 0, d);
-				return;
-			}
-			acc += d;
-		}
-	}
-
-	/** Nudge the global playhead by delta seconds (arrow keys). */
+	/** Nudge the master playhead by delta seconds (arrow keys). */
 	stepBy(deltaSeconds: number) {
-		this.seekGlobal(this.globalPlayhead + deltaSeconds);
+		this.seek(this.playhead + deltaSeconds);
 	}
 
 	zoomBy(factor: number) {
 		this.pxPerSec = clamp(this.pxPerSec * factor, TIMELINE.minPxPerSec, TIMELINE.maxPxPerSec);
 	}
 
-	/** Split the active clip into two at the playhead. */
+	/** Split the selected clip at the playhead (if the playhead lies inside it). */
 	splitAtPlayhead() {
 		const c = this.selectedClip;
 		if (!c) return;
-		// Playhead is timeline time; convert to a source-time cut point.
-		const splitPoint = c.inPoint + this.playhead * c.speed;
-		if (splitPoint <= c.inPoint + CLIP.minDurationSec) return;
-		if (splitPoint >= c.outPoint - CLIP.minDurationSec) return;
+		const local = this.localTime(c);
+		if (local <= 0 || local >= clipDuration(c)) return;
+		// Local timeline time -> source-time cut point.
+		const cut = c.inPoint + local * c.speed;
+		if (cut <= c.inPoint + CLIP.minDurationSec) return;
+		if (cut >= c.outPoint - CLIP.minDurationSec) return;
 		const idx = this.clips.findIndex((x) => x.id === c.id);
-		const left: Clip = { ...c, id: crypto.randomUUID(), outPoint: splitPoint };
-		const right: Clip = { ...c, id: crypto.randomUUID(), inPoint: splitPoint };
+		const left: Clip = { ...c, id: crypto.randomUUID(), outPoint: cut };
+		const right: Clip = {
+			...c,
+			id: crypto.randomUUID(),
+			inPoint: cut,
+			start: c.start + local
+		};
 		this.clips.splice(idx, 1, left, right);
 		this.selectedId = right.id;
-		this.playhead = 0;
 	}
 
-	/** Move a clip to a new position among the others (reorder by drag). */
-	moveClip(id: string, toIndex: number) {
-		const from = this.clips.findIndex((c) => c.id === id);
-		if (from === -1) return;
-		const [clip] = this.clips.splice(from, 1);
-		const target = clamp(toIndex, 0, this.clips.length);
-		this.clips.splice(target, 0, clip);
-	}
-
-	/** Trim handles (drag), clamped to keep a minimum length within the source. */
-	setInPoint(id: string, value: number) {
+	/** Move a clip to an absolute start and track (free drag on the timeline). */
+	moveClipTo(id: string, start: number, track: number) {
 		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
-		c.inPoint = clamp(value, 0, c.outPoint - CLIP.minDurationSec);
+		c.start = Math.max(0, start);
+		c.track = Math.max(0, Math.round(track));
 	}
 
+	/**
+	 * Trim the start edge. Moves the in-point and shifts `start` by the same
+	 * timeline amount, so the un-trimmed remainder stays anchored in place.
+	 */
+	setInPoint(id: string, sourceValue: number) {
+		const c = this.clips.find((x) => x.id === id);
+		if (!c) return;
+		let newIn = clamp(sourceValue, 0, c.outPoint - CLIP.minDurationSec);
+		const speed = c.speed || 1;
+		let newStart = c.start + (newIn - c.inPoint) / speed;
+		if (newStart < 0) {
+			// Clamp at the timeline origin and back out the in-point to match.
+			newIn = c.inPoint - c.start * speed;
+			newStart = 0;
+		}
+		c.inPoint = newIn;
+		c.start = newStart;
+	}
+
+	/** Trim the end edge (source out-point); the start stays anchored. */
 	setOutPoint(id: string, value: number) {
 		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
@@ -245,8 +300,6 @@ class EditorStore {
 		const c = this.selectedClip;
 		if (!c) return;
 		c.speed = clamp(v, CLIP.minSpeed, CLIP.maxSpeed);
-		// Timeline duration just changed; keep the playhead inside the clip.
-		this.playhead = clamp(this.playhead, 0, clipDuration(c));
 	}
 
 	setAspectRatio(ar: AspectRatio) {

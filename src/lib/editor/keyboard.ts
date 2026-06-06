@@ -36,11 +36,11 @@ export function handleEditorKeydown(e: KeyboardEvent): void {
 			break;
 		case 'Home':
 			e.preventDefault();
-			editor.seekGlobal(0);
+			editor.seek(0);
 			break;
 		case 'End':
 			e.preventDefault();
-			editor.seekGlobal(editor.totalDuration);
+			editor.seek(editor.totalDuration);
 			break;
 		case 's':
 		case 'S':

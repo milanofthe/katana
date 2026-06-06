@@ -5,8 +5,9 @@
 	import { TIMELINE } from '$lib/constants';
 
 	const hasClip = $derived(editor.selectedClip !== null);
+	const hasClips = $derived(editor.clips.length > 0);
 	const currentTime = $derived(formatTimecode(editor.playhead));
-	const duration = $derived(formatTimecode(editor.activeDuration));
+	const duration = $derived(formatTimecode(editor.totalDuration));
 
 	function deleteSelected() {
 		if (editor.selectedId) editor.removeClip(editor.selectedId);
@@ -17,7 +18,7 @@
 	<!-- Transport group: skip back, play/pause, skip forward -->
 	<div class="group transport">
 		<Tooltip text="To start" placement="top">
-			<IconButton icon="skipBack" label="To start" size="md" disabled={!hasClip} onclick={() => editor.seekGlobal(0)} />
+			<IconButton icon="skipBack" label="To start" size="md" disabled={!hasClips} onclick={() => editor.seek(0)} />
 		</Tooltip>
 		<Tooltip text={editor.playing ? 'Pause' : 'Play'} placement="top">
 			<IconButton
@@ -25,12 +26,12 @@
 				label={editor.playing ? 'Pause' : 'Play'}
 				size="lg"
 				variant="accent"
-				disabled={!hasClip}
+				disabled={!hasClips}
 				onclick={() => editor.togglePlay()}
 			/>
 		</Tooltip>
 		<Tooltip text="To end" placement="top">
-			<IconButton icon="skipForward" label="To end" size="md" disabled={!hasClip} onclick={() => editor.seekGlobal(editor.totalDuration)} />
+			<IconButton icon="skipForward" label="To end" size="md" disabled={!hasClips} onclick={() => editor.seek(editor.totalDuration)} />
 		</Tooltip>
 	</div>
 

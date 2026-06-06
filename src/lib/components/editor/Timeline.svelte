@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon, IconButton } from '$lib';
-	import { editor, clipDuration, type Clip } from '$lib/editor/store.svelte';
+	import { editor, clipDuration, clipEnd, type Clip } from '$lib/editor/store.svelte';
 	import { formatTimecode } from '$lib/editor/time';
 	import { TIMELINE, REORDER, THUMB } from '$lib/constants';
 
@@ -25,43 +25,39 @@
 	}
 
 	let contentEl: HTMLDivElement | undefined = $state();
+	let lanesEl: HTMLDivElement | undefined = $state();
 
-	// Reorder-drag state
+	// Free-drag state (position in time + track).
 	let dragId = $state<string | null>(null);
 	let dragActive = $state(false);
-	let dragDx = $state(0);
-	let dropIndex = $state(0);
 	let justDragged = false; // suppress the click that follows a drag
 
 	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
-	// Lay clips end to end; a gutter is carved off each right edge for separation.
-	const placed = $derived.by(() => {
-		let start = 0;
-		return editor.clips.map((c) => {
+	// Lanes rendered top-to-bottom; one spare lane on top to promote a clip into.
+	const laneIndices = $derived.by(() => {
+		const total = editor.trackCount + 1; // +1 spare lane on top
+		return Array.from({ length: total }, (_, i) => total - 1 - i);
+	});
+
+	// Each clip placed by absolute start (x) and track (lane).
+	const placed = $derived.by(() =>
+		editor.clips.map((c) => {
 			const dur = clipDuration(c);
-			const fullWidth = dur * editor.pxPerSec;
-			const item = {
+			return {
 				clip: c,
 				dur,
-				left: start * editor.pxPerSec + TIMELINE.gutterPx,
-				width: Math.max(TIMELINE.minClipWidthPx, fullWidth - TIMELINE.gutterPx)
+				left: c.start * editor.pxPerSec + TIMELINE.gutterPx,
+				width: Math.max(TIMELINE.minClipWidthPx, dur * editor.pxPerSec - TIMELINE.gutterPx)
 			};
-			start += dur;
-			return item;
-		});
-	});
+		})
+	);
 
-	const playheadX = $derived(editor.globalPlayhead * editor.pxPerSec + TIMELINE.gutterPx);
+	function clipsOnTrack(track: number) {
+		return placed.filter((p) => p.clip.track === track);
+	}
 
-	// Drop indicator position (between clips) during a reorder drag.
-	const dropX = $derived.by(() => {
-		const others = placed.filter((p) => p.clip.id !== dragId);
-		if (others.length === 0) return TIMELINE.gutterPx;
-		if (dropIndex <= 0) return others[0].left - TIMELINE.gutterPx / 2;
-		const prev = others[Math.min(dropIndex, others.length) - 1];
-		return prev.left + prev.width + TIMELINE.gutterPx / 2;
-	});
+	const playheadX = $derived(editor.playhead * editor.pxPerSec + TIMELINE.gutterPx);
 
 	function niceInterval(targetSeconds: number): number {
 		if (targetSeconds <= 0) return 1;
@@ -95,39 +91,48 @@
 		return (pointerToContentX(clientX) - TIMELINE.gutterPx) / editor.pxPerSec;
 	}
 
-	function computeDropIndex(clientX: number): number {
-		const x = pointerToContentX(clientX);
-		let idx = 0;
-		for (const p of placed) {
-			if (p.clip.id === dragId) continue;
-			if (x > p.left + p.width / 2) idx++;
-		}
-		return idx;
+	// Which track lane the pointer is over (top lane = highest index).
+	function trackFromClientY(clientY: number): number {
+		if (!lanesEl) return 0;
+		const rect = lanesEl.getBoundingClientRect();
+		const count = laneIndices.length;
+		const h = rect.height / count;
+		const i = Math.max(0, Math.min(count - 1, Math.floor((clientY - rect.top) / h)));
+		return laneIndices[i];
 	}
 
-	// Snap a timeline position to the nearest clip boundary when snapping is on.
-	function snapSeconds(sec: number): number {
-		if (!editor.snapping) return sec;
+	// Snap a timeline position to 0, the playhead, or any other clip edge.
+	function snapSeconds(sec: number, excludeId: string | null): number {
+		if (!editor.snapping) return Math.max(0, sec);
 		const threshold = TIMELINE.snapThresholdPx / editor.pxPerSec;
-		if (Math.abs(sec) <= threshold) return 0;
-		let acc = 0;
+		const candidates = [0, editor.playhead];
 		for (const c of editor.clips) {
-			acc += clipDuration(c);
-			if (Math.abs(sec - acc) <= threshold) return acc;
+			if (c.id === excludeId) continue;
+			candidates.push(c.start, clipEnd(c));
 		}
-		return sec;
+		let best = sec;
+		let bestDist = threshold;
+		for (const cand of candidates) {
+			const d = Math.abs(sec - cand);
+			if (d <= bestDist) {
+				bestDist = d;
+				best = cand;
+			}
+		}
+		return Math.max(0, best);
 	}
 
-	// Scrub the playhead by clicking/dragging the ruler. Throttled to one
-	// seekGlobal per frame (it's O(n) and can swap the previewed clip).
+	// Scrub the playhead by clicking/dragging the ruler. Pauses first so the
+	// master clock doesn't fight the drag.
 	function startScrub(e: PointerEvent) {
 		e.preventDefault();
-		editor.seekGlobal(snapSeconds(pointerToSeconds(e.clientX)));
+		editor.pause();
+		editor.seek(snapSeconds(pointerToSeconds(e.clientX), null));
 		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
 			const x = ev.clientX;
 			cancelAnimationFrame(raf);
-			raf = requestAnimationFrame(() => editor.seekGlobal(snapSeconds(pointerToSeconds(x))));
+			raf = requestAnimationFrame(() => editor.seek(snapSeconds(pointerToSeconds(x), null)));
 		};
 		const onUp = () => {
 			cancelAnimationFrame(raf);
@@ -138,30 +143,38 @@
 		window.addEventListener('pointerup', onUp);
 	}
 
-	// Drag a clip body to reorder it; a small threshold separates click from drag.
+	// Drag a clip body to move it in time (horizontal) and across tracks
+	// (vertical). A small threshold separates a click (select) from a drag.
 	function startClipDrag(e: PointerEvent, id: string) {
 		const startX = e.clientX;
+		const startY = e.clientY;
+		const clip = editor.clips.find((c) => c.id === id);
+		if (!clip) return;
+		const origStart = clip.start;
+		const origLeftPx = origStart * editor.pxPerSec;
 		dragId = id;
 		dragActive = false;
-		dragDx = 0;
+		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
 			const dx = ev.clientX - startX;
-			if (!dragActive && Math.abs(dx) > REORDER.dragThresholdPx) dragActive = true;
-			if (dragActive) {
-				dragDx = dx;
-				dropIndex = computeDropIndex(ev.clientX);
-			}
+			const dy = ev.clientY - startY;
+			if (!dragActive && Math.hypot(dx, dy) > REORDER.dragThresholdPx) dragActive = true;
+			if (!dragActive) return;
+			const cx = ev.clientX;
+			const cy = ev.clientY;
+			cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(() => {
+				const newStart = snapSeconds((origLeftPx + (cx - startX)) / editor.pxPerSec, id);
+				editor.moveClipTo(id, newStart, trackFromClientY(cy));
+			});
 		};
 		const onUp = () => {
+			cancelAnimationFrame(raf);
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
-			if (dragActive && dragId) {
-				editor.moveClip(dragId, dropIndex);
-				justDragged = true;
-			}
+			if (dragActive) justDragged = true;
 			dragId = null;
 			dragActive = false;
-			dragDx = 0;
 		};
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
@@ -243,69 +256,66 @@
 				{/each}
 			</div>
 
-			<!-- Single track with positioned clip snippets -->
-			<div class="track">
-				{#each placed as p (p.clip.id)}
-					<div
-						class="clip"
-						class:selected={p.clip.id === editor.selectedId}
-						class:dragging={p.clip.id === dragId && dragActive}
-						style="left: {p.left}px; width: {p.width}px;{p.clip.id === dragId && dragActive
-							? ` --drag-dx: ${dragDx}px;`
-							: ''}"
-					>
-						{#if p.width >= TIMELINE.minTrimWidthPx}
-							<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
+			<!-- Stacked track lanes (top lane is the spare for promotion) -->
+			<div class="lanes" bind:this={lanesEl}>
+				{#each laneIndices as t (t)}
+					<div class="lane" class:spare={t === editor.trackCount}>
+						{#each clipsOnTrack(t) as p (p.clip.id)}
 							<div
-								class="trim-handle trim-start"
-								onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
-							></div>
-						{/if}
-						<button
-							class="clip-surface"
-							onpointerdown={(e) => startClipDrag(e, p.clip.id)}
-							onclick={() => onClipClick(p.clip.id)}
-							aria-label="Select {p.clip.name}"
-						>
-							<div
-								class="clip-thumb"
-								class:empty={p.clip.thumbnails.length === 0}
-								style="--ar: {p.clip.aspectRatio}"
+								class="clip"
+								class:selected={p.clip.id === editor.selectedId}
+								class:dragging={p.clip.id === dragId && dragActive}
+								style="left: {p.left}px; width: {p.width}px"
 							>
-								{#if p.clip.thumbnails.length > 0}
-									{#each filmstripFrames(p.clip, p.width) as frame, i (i)}
-										<div class="frame" style="background-image: url({frame})"></div>
-									{/each}
-								{:else}
-									<Icon name="film" class="thumb-glyph" />
+								{#if p.width >= TIMELINE.minTrimWidthPx}
+									<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
+									<div
+										class="trim-handle trim-start"
+										onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
+									></div>
 								{/if}
+								<button
+									class="clip-surface"
+									onpointerdown={(e) => startClipDrag(e, p.clip.id)}
+									onclick={() => onClipClick(p.clip.id)}
+									aria-label="Select {p.clip.name}"
+								>
+									<div
+										class="clip-thumb"
+										class:empty={p.clip.thumbnails.length === 0}
+										style="--ar: {p.clip.aspectRatio}"
+									>
+										{#if p.clip.thumbnails.length > 0}
+											{#each filmstripFrames(p.clip, p.width) as frame, i (i)}
+												<div class="frame" style="background-image: url({frame})"></div>
+											{/each}
+										{:else}
+											<Icon name="film" class="thumb-glyph" />
+										{/if}
+									</div>
+									<div class="clip-meta">
+										<span class="clip-name">{p.clip.name}</span>
+										<span class="clip-dur katana-mono">{formatTimecode(p.dur)}</span>
+									</div>
+								</button>
+								{#if p.width >= TIMELINE.minTrimWidthPx}
+									<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
+									<div
+										class="trim-handle trim-end"
+										onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
+									></div>
+								{/if}
+								<div class="clip-actions">
+									<IconButton icon="trash" label="Remove clip" size="sm" onclick={() => editor.removeClip(p.clip.id)} />
+								</div>
 							</div>
-							<div class="clip-meta">
-								<span class="clip-name">{p.clip.name}</span>
-								<span class="clip-dur katana-mono">{formatTimecode(p.dur)}</span>
-							</div>
-						</button>
-						{#if p.width >= TIMELINE.minTrimWidthPx}
-							<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
-							<div
-								class="trim-handle trim-end"
-								onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
-							></div>
-						{/if}
-						<div class="clip-actions">
-							<IconButton icon="trash" label="Remove clip" size="sm" onclick={() => editor.removeClip(p.clip.id)} />
-						</div>
+						{/each}
 					</div>
 				{/each}
-
-				<!-- Reorder drop indicator -->
-				{#if dragActive}
-					<div class="drop-indicator" style="left: {dropX}px"></div>
-				{/if}
 			</div>
 
-			<!-- Playhead spanning ruler + track -->
-			{#if editor.selectedClip}
+			<!-- Playhead spanning ruler + lanes -->
+			{#if editor.clips.length > 0}
 				<div class="playhead" style="left: {playheadX}px">
 					<div class="playhead-head"></div>
 				</div>
@@ -333,12 +343,14 @@
 	.tl-scroll {
 		position: relative;
 		overflow-x: auto;
-		overflow-y: hidden;
+		overflow-y: auto;
+		max-height: 16rem;
 		scrollbar-width: thin;
 		scrollbar-color: var(--katana-border-strong) transparent;
 	}
 	.tl-scroll::-webkit-scrollbar {
 		height: var(--katana-space-2);
+		width: var(--katana-space-2);
 	}
 	.tl-scroll::-webkit-scrollbar-thumb {
 		background: var(--katana-border-strong);
@@ -384,10 +396,22 @@
 		line-height: var(--katana-leading-none);
 	}
 
-	/* Track lane */
-	.track {
+	/* Track lanes */
+	.lane {
 		position: relative;
 		height: var(--katana-timeline-track-height);
+		border-bottom: var(--katana-border-width) solid var(--katana-border);
+	}
+	/* The spare lane on top reads as a lighter drop zone for new layers. */
+	.lane.spare {
+		background: repeating-linear-gradient(
+			-45deg,
+			transparent,
+			transparent var(--katana-space-2),
+			var(--katana-bg-surface) var(--katana-space-2),
+			var(--katana-bg-surface) calc(var(--katana-space-2) * 2)
+		);
+		opacity: 0.5;
 	}
 
 	/* Clip snippet */
@@ -409,7 +433,6 @@
 		border: var(--katana-border-width-thick) solid var(--katana-accent);
 	}
 	.clip.dragging {
-		transform: translateX(var(--drag-dx, 0));
 		z-index: 5;
 		opacity: 0.85;
 		box-shadow: var(--katana-shadow-pop);
@@ -539,19 +562,6 @@
 	}
 	.clip-actions :global(.icon-btn) {
 		background: var(--katana-bg-base);
-	}
-
-	/* Reorder drop indicator */
-	.drop-indicator {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		width: var(--katana-border-width-thick);
-		background: var(--katana-accent);
-		border-radius: var(--katana-radius-full);
-		transform: translateX(-50%);
-		z-index: 4;
-		pointer-events: none;
 	}
 
 	/* Playhead */
