@@ -27,9 +27,15 @@
 	let contentEl: HTMLDivElement | undefined = $state();
 	let lanesEl: HTMLDivElement | undefined = $state();
 
-	// Free-drag state (position in time + track).
+	// Free-drag state (position in time + track). The live drag is rendered with
+	// a GPU transform (no per-frame store writes / layout); the store is updated
+	// once on release, which also yields a single undo entry.
 	let dragId = $state<string | null>(null);
 	let dragActive = $state(false);
+	/** Snapped horizontal offset (px) of the dragged clip during the gesture. */
+	let dragDx = $state(0);
+	/** Target track lane of the dragged clip during the gesture. */
+	let dragTrack = $state(0);
 	/** Lane count frozen for the duration of a clip drag (occupied + 1 spare). */
 	let dragLaneCount = $state(0);
 	let justDragged = false; // suppress the click that follows a drag
@@ -56,8 +62,12 @@
 		})
 	);
 
-	function clipsOnTrack(track: number) {
-		return placed.filter((p) => p.clip.track === track);
+	function clipsForLane(track: number) {
+		return placed.filter((p) => {
+			// While dragging, the clip renders in its live target lane.
+			if (dragActive && p.clip.id === dragId) return track === dragTrack;
+			return p.clip.track === track;
+		});
 	}
 
 	const playheadX = $derived(editor.playhead * editor.pxPerSec + TIMELINE.gutterPx);
@@ -154,7 +164,9 @@
 			: 64;
 		dragId = id;
 		dragActive = false;
-		editor.beginTransaction();
+		dragDx = 0;
+		dragTrack = startTrack;
+		let committedStart = origStart;
 		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
 			const dx = ev.clientX - startX;
@@ -169,20 +181,25 @@
 			cancelAnimationFrame(raf);
 			raf = requestAnimationFrame(() => {
 				const newStart = snapSeconds((origLeftPx + (cx - startX)) / editor.pxPerSec, id);
+				committedStart = newStart;
+				// Live offset rendered via GPU transform; store stays untouched.
+				dragDx = newStart * editor.pxPerSec - origLeftPx;
 				// Move up by whole lanes; promote by at most one new track per drag.
 				const laneDelta = Math.round((startY - cy) / laneH);
-				const newTrack = Math.max(0, Math.min(trackCount0, startTrack + laneDelta));
-				editor.moveClipTo(id, newStart, newTrack);
+				dragTrack = Math.max(0, Math.min(trackCount0, startTrack + laneDelta));
 			});
 		};
 		const onUp = () => {
 			cancelAnimationFrame(raf);
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
-			editor.endTransaction();
-			if (dragActive) justDragged = true;
+			if (dragActive) {
+				editor.moveClipTo(id, committedStart, dragTrack); // one store write, one undo step
+				justDragged = true;
+			}
 			dragId = null;
 			dragActive = false;
+			dragDx = 0;
 		};
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
@@ -270,12 +287,14 @@
 			<div class="lanes" bind:this={lanesEl}>
 				{#each laneIndices as t (t)}
 					<div class="lane" class:spare={dragActive && t === dragLaneCount - 1}>
-						{#each clipsOnTrack(t) as p (p.clip.id)}
+						{#each clipsForLane(t) as p (p.clip.id)}
 							<div
 								class="clip"
 								class:selected={p.clip.id === editor.selectedId}
 								class:dragging={p.clip.id === dragId && dragActive}
-								style="left: {p.left}px; width: {p.width}px"
+								style="left: {p.left}px; width: {p.width}px;{p.clip.id === dragId && dragActive
+									? ` transform: translateX(${dragDx}px);`
+									: ''}"
 							>
 								{#if p.width >= TIMELINE.minTrimWidthPx}
 									<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
@@ -324,9 +343,9 @@
 				{/each}
 			</div>
 
-			<!-- Playhead spanning ruler + lanes -->
+			<!-- Playhead spanning ruler + lanes (GPU transform for a smooth 60fps sweep) -->
 			{#if editor.clips.length > 0}
-				<div class="playhead" style="left: {playheadX}px">
+				<div class="playhead" style="transform: translateX({playheadX}px)">
 					<div class="playhead-head"></div>
 				</div>
 			{/if}
@@ -446,6 +465,7 @@
 		z-index: 5;
 		opacity: 0.85;
 		box-shadow: var(--katana-shadow-pop);
+		will-change: transform;
 	}
 
 	.clip-surface {
@@ -574,15 +594,18 @@
 		background: var(--katana-bg-base);
 	}
 
-	/* Playhead */
+	/* Playhead. Positioned via transform (compositor-only) for a smooth sweep;
+	   centered on its x by a half-width negative margin instead of translateX. */
 	.playhead {
 		position: absolute;
 		top: 0;
 		bottom: 0;
+		left: 0;
+		margin-left: calc(var(--katana-border-width-thick) / -2);
 		width: var(--katana-border-width-thick);
 		background: var(--katana-accent);
-		transform: translateX(-50%);
 		pointer-events: none;
+		will-change: transform;
 		z-index: var(--katana-z-timeline);
 	}
 	.playhead-head {

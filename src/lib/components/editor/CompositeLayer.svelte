@@ -39,6 +39,11 @@
 	let startY = 0;
 	let baseTx = 0;
 	let baseTy = 0;
+	// Live drag rendered as a GPU translate (px); store is written once on release.
+	let dragOffX = $state(0);
+	let dragOffY = $state(0);
+	let pendingX = 0;
+	let pendingY = 0;
 
 	function onPointerDown(e: PointerEvent) {
 		onselect(clip.id);
@@ -47,7 +52,10 @@
 		startY = e.clientY;
 		baseTx = clip.transform.x;
 		baseTy = clip.transform.y;
-		editor.beginTransaction();
+		pendingX = baseTx;
+		pendingY = baseTy;
+		dragOffX = 0;
+		dragOffY = 0;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		e.preventDefault();
 	}
@@ -60,13 +68,20 @@
 		const snapY = Math.abs(y) < VIEWPORT.snapThreshold;
 		if (snapX) x = 0;
 		if (snapY) y = 0;
-		editor.setTransform(clip.id, { x, y });
+		pendingX = x;
+		pendingY = y;
+		dragOffX = (x - baseTx) * fw;
+		dragOffY = (y - baseTy) * fh;
 		ondragstate({ snapX, snapY, active: true });
 	}
 
 	function onPointerUp(e: PointerEvent) {
+		if (dragging && (pendingX !== baseTx || pendingY !== baseTy)) {
+			editor.setTransform(clip.id, { x: pendingX, y: pendingY }); // one store write, one undo step
+		}
 		dragging = false;
-		editor.endTransaction();
+		dragOffX = 0;
+		dragOffY = 0;
 		ondragstate({ snapX: false, snapY: false, active: false });
 		(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 	}
@@ -148,7 +163,9 @@
 	class:selected
 	class:dragging
 	preload="metadata"
-	style={box ? `left:${box.left}px;top:${box.top}px;width:${box.w}px;height:${box.h}px` : ''}
+	style={box
+		? `left:${box.left}px;top:${box.top}px;width:${box.w}px;height:${box.h}px;transform:translate3d(${dragOffX}px,${dragOffY}px,0)`
+		: ''}
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
@@ -171,5 +188,6 @@
 	}
 	.layer.dragging {
 		cursor: grabbing;
+		will-change: transform;
 	}
 </style>
