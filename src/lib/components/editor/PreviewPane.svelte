@@ -61,7 +61,7 @@
 
 	<div class="stage">
 		{#if hasClips}
-			<div class="frame" style="aspect-ratio: {frameRatio}" bind:clientWidth={fw} bind:clientHeight={fh}>
+			<div class="frame" style="--ar: {frameRatio}" bind:clientWidth={fw} bind:clientHeight={fh}>
 				{#each editor.activeClips as clip (clip.id)}
 					<CompositeLayer
 						{clip}
@@ -148,15 +148,20 @@
 		min-height: 0;
 		align-items: center;
 		justify-content: center;
+		/* Size container so the frame can fit itself to both axes (cqw/cqh). */
+		container-type: size;
 	}
 
 	/* The output frame: a letterboxed canvas at the project aspect ratio.
-	   Square corners: it represents the real (rectangular) output video. */
+	   Square corners: it represents the real (rectangular) output video.
+	   Width is the largest that fits BOTH axes; height follows the aspect ratio,
+	   so resizing never squishes it. */
 	.frame {
 		position: relative;
+		aspect-ratio: var(--ar);
+		width: min(100cqw, 100cqh * var(--ar));
 		max-width: 100%;
 		max-height: 100%;
-		height: 100%;
 		background: #000000;
 		overflow: hidden;
 	}
