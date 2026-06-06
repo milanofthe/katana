@@ -1,38 +1,43 @@
 <script lang="ts">
-	interface Clip {
-		id: string;
-		label: string;
-		duration: number; // seconds
-	}
+	import { Icon, IconButton } from '$lib';
+	import { editor, clipDuration } from '$lib/editor/store.svelte';
+	import { formatTimecode } from '$lib/editor/time';
+	import { TIMELINE } from '$lib/constants';
 
-	interface Props {
-		clips?: Clip[];
-		selectedId?: string;
-		playhead?: number; // 0–100 percentage
-		onSelect?: (id: string) => void;
-	}
+	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
-	const DEFAULT_CLIPS: Clip[] = [
-		{ id: 'c1', label: 'clip_01.mp4', duration: 12 },
-		{ id: 'c2', label: 'clip_02.mp4', duration: 8 },
-		{ id: 'c3', label: 'clip_03.mp4', duration: 20 },
-		{ id: 'c4', label: 'clip_04.mp4', duration: 15 },
-	];
+	// Lay clips end to end; a gutter is carved off each right edge for separation.
+	const placed = $derived.by(() => {
+		let start = 0;
+		return editor.clips.map((c) => {
+			const dur = clipDuration(c);
+			const fullWidth = dur * editor.pxPerSec;
+			const item = {
+				clip: c,
+				dur,
+				left: start * editor.pxPerSec + TIMELINE.gutterPx,
+				width: Math.max(TIMELINE.minClipWidthPx, fullWidth - TIMELINE.gutterPx)
+			};
+			start += dur;
+			return item;
+		});
+	});
 
-	let {
-		clips = DEFAULT_CLIPS,
-		selectedId = 'c2',
-		playhead = 35,
-		onSelect,
-	}: Props = $props();
+	// Global playhead = durations of clips before the selected one + local playhead.
+	const selectedStart = $derived.by(() => {
+		let acc = 0;
+		for (const c of editor.clips) {
+			if (c.id === editor.selectedId) return acc;
+			acc += clipDuration(c);
+		}
+		return 0;
+	});
+	const playheadX = $derived((selectedStart + editor.playhead) * editor.pxPerSec + TIMELINE.gutterPx);
 
-	const totalDuration = $derived(clips.reduce((sum, c) => sum + c.duration, 0));
-
-	function niceInterval(total: number, targetTicks: number): number {
-		if (total === 0) return 1;
-		const raw = total / targetTicks;
-		const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
-		const norm = raw / magnitude;
+	function niceInterval(targetSeconds: number): number {
+		if (targetSeconds <= 0) return 1;
+		const magnitude = Math.pow(10, Math.floor(Math.log10(targetSeconds)));
+		const norm = targetSeconds / magnitude;
 		let nice: number;
 		if (norm < 1.5) nice = 1;
 		else if (norm < 3.5) nice = 2;
@@ -41,161 +46,251 @@
 		return nice * magnitude;
 	}
 
-	function formatTime(seconds: number): string {
-		const m = Math.floor(seconds / 60);
-		const s = Math.floor(seconds % 60);
-		return `${m}:${s.toString().padStart(2, '0')}`;
-	}
-
-	const rulerTicks = $derived.by(() => {
-		if (totalDuration === 0) return [];
-		const interval = niceInterval(totalDuration, 8);
-		const ticks: Array<{ label: string; percent: number }> = [];
-		for (let t = 0; t <= totalDuration; t += interval) {
-			ticks.push({
-				label: formatTime(t),
-				percent: (t / totalDuration) * 100,
-			});
+	const ticks = $derived.by(() => {
+		const total = editor.totalDuration;
+		if (total <= 0) return [];
+		const interval = niceInterval(TIMELINE.rulerTickTargetPx / editor.pxPerSec);
+		const out: Array<{ label: string; x: number }> = [];
+		for (let t = 0; t <= total + 0.001; t += interval) {
+			out.push({ label: formatTimecode(t), x: t * editor.pxPerSec + TIMELINE.gutterPx });
 		}
-		return ticks;
+		return out;
 	});
+
+	// Plain wheel scrolls horizontally; Ctrl/Cmd+wheel zooms. Non-passive so
+	// preventDefault works.
+	function wheelZoomScroll(node: HTMLElement) {
+		function onWheel(e: WheelEvent) {
+			if (e.ctrlKey || e.metaKey) {
+				e.preventDefault();
+				editor.zoomBy(e.deltaY < 0 ? TIMELINE.zoomStep : 1 / TIMELINE.zoomStep);
+			} else {
+				e.preventDefault();
+				node.scrollLeft += e.deltaY + e.deltaX;
+			}
+		}
+		node.addEventListener('wheel', onWheel, { passive: false });
+		return {
+			destroy() {
+				node.removeEventListener('wheel', onWheel);
+			}
+		};
+	}
 </script>
 
-<div class="timeline" style="--playhead-pos: {playhead}%">
-	<!-- Ruler row: time ticks with labels -->
-	<div class="ruler" role="presentation">
-		{#each rulerTicks as tick (tick.percent)}
-			<div class="tick" style="left: {tick.percent}%">
-				<span class="tick-label">{tick.label}</span>
-				<div class="tick-mark"></div>
+<div class="timeline">
+	<div class="tl-scroll" use:wheelZoomScroll>
+		<div class="tl-content" style="width: {contentWidth}px">
+			<!-- Ruler: ticks with left-anchored labels -->
+			<div class="ruler">
+				{#each ticks as tick (tick.x)}
+					<div class="tick" style="left: {tick.x}px">
+						<div class="tick-mark"></div>
+						<span class="tick-label snip-mono">{tick.label}</span>
+					</div>
+				{/each}
 			</div>
-		{/each}
-	</div>
 
-	<!-- Single track lane holding all clip blocks -->
-	<div class="track-lane" role="region" aria-label="Timeline track">
-		{#each clips as clip (clip.id)}
-			<button
-				class="clip-block"
-				class:selected={clip.id === selectedId}
-				style="width: {(clip.duration / totalDuration) * 100}%"
-				onclick={() => onSelect?.(clip.id)}
-				type="button"
-				title={clip.label}
-				aria-pressed={clip.id === selectedId}
-			>
-				<span class="clip-label">{clip.label}</span>
-			</button>
-		{/each}
-	</div>
+			<!-- Single track with positioned clip snippets -->
+			<div class="track">
+				{#each placed as p (p.clip.id)}
+					<div
+						class="clip"
+						class:selected={p.clip.id === editor.selectedId}
+						style="left: {p.left}px; width: {p.width}px"
+					>
+						<button class="clip-surface" onclick={() => editor.select(p.clip.id)} aria-label="Select {p.clip.name}">
+							<div
+								class="clip-thumb"
+								style={p.clip.thumbnail ? `background-image: url(${p.clip.thumbnail})` : ''}
+							>
+								{#if !p.clip.thumbnail}
+									<Icon name="film" class="thumb-glyph" />
+								{/if}
+							</div>
+							<div class="clip-meta">
+								<span class="clip-name">{p.clip.name}</span>
+								<span class="clip-dur snip-mono">{formatTimecode(p.dur)}</span>
+							</div>
+						</button>
+						<div class="clip-actions">
+							<IconButton icon="trash" label="Remove clip" size="sm" onclick={() => editor.removeClip(p.clip.id)} />
+						</div>
+					</div>
+				{/each}
+			</div>
 
-	<!-- Playhead: vertical line with a downward-pointing CSS triangle head -->
-	<div class="playhead" aria-hidden="true">
-		<div class="playhead-head"></div>
+			<!-- Playhead spanning ruler + track -->
+			{#if editor.selectedClip}
+				<div class="playhead" style="left: {playheadX}px">
+					<div class="playhead-head"></div>
+				</div>
+			{/if}
+		</div>
+
+		{#if editor.clips.length === 0}
+			<div class="tl-empty">Import media to start editing</div>
+		{/if}
 	</div>
 </div>
 
 <style>
-	/* Timeline shell */
 	.timeline {
-		position: relative;
 		display: flex;
 		flex-direction: column;
 		background: var(--snip-bg-base);
 		border-top: var(--snip-border-width) solid var(--snip-border);
 		flex-shrink: 0;
 		user-select: none;
-		z-index: var(--snip-z-timeline);
-		overflow: hidden;
+	}
+
+	/* Horizontal scroll viewport */
+	.tl-scroll {
+		position: relative;
+		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: thin;
+		scrollbar-color: var(--snip-border-strong) transparent;
+	}
+	.tl-scroll::-webkit-scrollbar {
+		height: var(--snip-space-2);
+	}
+	.tl-scroll::-webkit-scrollbar-thumb {
+		background: var(--snip-border-strong);
+		border-radius: var(--snip-radius-full);
+	}
+
+	.tl-content {
+		position: relative;
+		min-width: 100%;
 	}
 
 	/* Ruler */
 	.ruler {
 		position: relative;
-		height: var(--snip-space-6);
-		background: var(--snip-bg-base);
-		border-bottom: var(--snip-border-width) solid var(--snip-border-strong);
-		overflow: hidden;
+		height: var(--snip-timeline-ruler-height);
+		border-bottom: var(--snip-border-width) solid var(--snip-border);
 	}
-
 	.tick {
 		position: absolute;
 		top: 0;
 		bottom: 0;
 		display: flex;
-		flex-direction: column;
-		align-items: center;
-		transform: translateX(-50%);
+		align-items: flex-end;
+		gap: var(--snip-space-1);
+		padding-bottom: var(--snip-space-1);
 		pointer-events: none;
 	}
-
+	.tick-mark {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: var(--snip-border-width);
+		height: var(--snip-space-2);
+		background: var(--snip-border-strong);
+	}
 	.tick-label {
-		font-family: var(--snip-font-mono);
 		font-size: var(--snip-text-xs);
 		font-variant-numeric: tabular-nums;
-		font-weight: var(--snip-weight-regular);
 		color: var(--snip-text-muted);
 		white-space: nowrap;
+		padding-left: var(--snip-space-1);
 		line-height: var(--snip-leading-none);
-		padding-top: var(--snip-space-1);
-	}
-
-	.tick-mark {
-		width: var(--snip-border-width);
-		flex: 1;
-		background: var(--snip-border-strong);
-		margin-top: var(--snip-space-1);
 	}
 
 	/* Track lane */
-	.track-lane {
-		display: flex;
-		flex-direction: row;
-		gap: var(--snip-space-px);
-		height: var(--snip-space-10);
-		background: var(--snip-bg-surface);
-		padding: var(--snip-space-1) 0;
-		align-items: stretch;
+	.track {
+		position: relative;
+		height: var(--snip-timeline-track-height);
 	}
 
-	/* Clip block */
-	.clip-block {
-		appearance: none;
-		flex-shrink: 0;
-		min-width: 0;
-		overflow: hidden;
+	/* Clip snippet */
+	.clip {
+		position: absolute;
+		top: var(--snip-timeline-gutter);
+		bottom: var(--snip-timeline-gutter);
 		display: flex;
-		align-items: center;
-		padding: 0 var(--snip-space-2);
-		border: var(--snip-border-width) solid var(--snip-border);
 		border-radius: var(--snip-radius-md);
+		overflow: hidden;
+		border: var(--snip-border-width) solid var(--snip-border);
 		background: var(--snip-bg-elevated);
-		cursor: pointer;
-		transition:
-			background var(--snip-duration-fast) var(--snip-ease-out),
-			border-color var(--snip-duration-fast) var(--snip-ease-out);
+		transition: border-color var(--snip-duration-fast) var(--snip-ease-out);
 	}
-
-	.clip-block:hover {
-		background: var(--snip-bg-overlay);
+	.clip:hover {
 		border-color: var(--snip-border-strong);
 	}
-
-	.clip-block.selected {
-		background: var(--snip-accent-muted);
+	.clip.selected {
 		border: var(--snip-border-width-thick) solid var(--snip-accent);
 	}
 
-	.clip-label {
-		display: block;
-		width: 100%;
-		font-family: var(--snip-font-sans);
-		font-size: var(--snip-text-sm);
-		font-weight: var(--snip-weight-regular);
+	.clip-surface {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-width: 0;
+		text-align: left;
+		background: transparent;
+		cursor: pointer;
+	}
+
+	/* Thumbnail / preview area (solid placeholder until real frames are extracted) */
+	.clip-thumb {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: var(--snip-bg-base);
+		background-size: cover;
+		background-position: center;
+		font-size: var(--snip-text-xl);
+		color: var(--snip-text-muted);
+	}
+	.clip-thumb :global(.thumb-glyph) {
+		opacity: 0.5;
+	}
+
+	/* Footer: name + duration */
+	.clip-meta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--snip-space-2);
+		padding: var(--snip-space-1) var(--snip-space-2);
+		background: var(--snip-bg-elevated);
+		border-top: var(--snip-border-width) solid var(--snip-border);
+	}
+	.clip-name {
+		font-size: var(--snip-text-xs);
+		font-weight: var(--snip-weight-medium);
 		color: var(--snip-text-secondary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.clip-dur {
+		flex-shrink: 0;
+		font-size: var(--snip-text-xs);
+		font-variant-numeric: tabular-nums;
+		color: var(--snip-text-muted);
+	}
+
+	/* Per-clip action buttons, revealed on hover */
+	.clip-actions {
+		position: absolute;
+		top: var(--snip-space-1);
+		right: var(--snip-space-1);
+		display: flex;
+		gap: var(--snip-space-1);
+		opacity: 0;
+		transition: opacity var(--snip-duration-fast) var(--snip-ease-out);
+	}
+	.clip:hover .clip-actions,
+	.clip:focus-within .clip-actions {
+		opacity: 1;
+	}
+	.clip-actions :global(.icon-btn) {
+		background: var(--snip-bg-base);
 	}
 
 	/* Playhead */
@@ -203,16 +298,12 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		left: var(--playhead-pos);
 		width: var(--snip-border-width-thick);
 		background: var(--snip-accent);
 		transform: translateX(-50%);
 		pointer-events: none;
-		z-index: 2;
-		transition: left var(--snip-duration-fast) var(--snip-ease-out);
+		z-index: var(--snip-z-timeline);
 	}
-
-	/* CSS border triangle — downward-pointing head at top of playhead line */
 	.playhead-head {
 		position: absolute;
 		top: 0;
@@ -223,5 +314,17 @@
 		border-left: var(--snip-space-1) solid transparent;
 		border-right: var(--snip-space-1) solid transparent;
 		border-top: var(--snip-space-2) solid var(--snip-accent);
+	}
+
+	/* Empty state */
+	.tl-empty {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: var(--snip-text-sm);
+		color: var(--snip-text-muted);
+		pointer-events: none;
 	}
 </style>

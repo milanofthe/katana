@@ -1,23 +1,65 @@
 <script lang="ts">
 	import { Icon } from '$lib';
+	import { editor } from '$lib/editor/store.svelte';
+	import { PLAYER } from '$lib/constants';
 
-	interface Props {
-		src?: string;
-		video?: HTMLVideoElement;
+	let video = $state<HTMLVideoElement>();
+	const clip = $derived(editor.selectedClip);
+
+	// Play/pause follows the store.
+	$effect(() => {
+		const v = video;
+		if (!v) return;
+		if (editor.playing) {
+			v.play().catch(() => {});
+		} else {
+			v.pause();
+		}
+	});
+
+	// Keep the video time in sync with the playhead (skip buttons / scrubbing).
+	// The threshold stops timeupdate from fighting external seeks.
+	$effect(() => {
+		const v = video;
+		const c = clip;
+		if (!v || !c) return;
+		const target = c.inPoint + editor.playhead;
+		if (Math.abs(v.currentTime - target) > PLAYER.seekThresholdSec) {
+			v.currentTime = target;
+		}
+	});
+
+	function onLoadedMeta() {
+		if (video && clip) video.currentTime = clip.inPoint + editor.playhead;
 	}
 
-	let { src = undefined, video = $bindable() }: Props = $props();
+	function onTimeUpdate() {
+		if (!video || !clip) return;
+		editor.playhead = video.currentTime - clip.inPoint;
+		// Stop at the trim out-point.
+		if (video.currentTime >= clip.outPoint) {
+			video.pause();
+			editor.playing = false;
+		}
+	}
+
+	function onEnded() {
+		editor.playing = false;
+	}
 </script>
 
 <div class="preview-pane">
 	<div class="stage">
-		{#if src}
+		{#if clip}
 			<!-- svelte-ignore a11y_media_has_caption -- editing preview, not a captioned content player -->
 			<video
 				bind:this={video}
-				{src}
+				src={clip.src}
 				class="video"
 				preload="metadata"
+				onloadedmetadata={onLoadedMeta}
+				ontimeupdate={onTimeUpdate}
+				onended={onEnded}
 			></video>
 		{:else}
 			<div class="empty-state">

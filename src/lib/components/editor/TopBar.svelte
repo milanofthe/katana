@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { Icon, Button, Logo } from '$lib';
-
-	interface Props {
-		onImport?: () => void;
-		onExport?: () => void;
-	}
-
-	let { onImport, onExport }: Props = $props();
+	import { importMedia } from '$lib/editor/import';
+	import { editor } from '$lib/editor/store.svelte';
 </script>
 
 <header class="top-bar">
@@ -15,10 +10,10 @@
 	</div>
 
 	<div class="actions">
-		<Button variant="secondary" onclick={onImport}>
+		<Button variant="secondary" onclick={importMedia}>
 			<Icon name="import" />Import
 		</Button>
-		<Button variant="primary" onclick={onExport}>
+		<Button variant="primary" disabled={editor.clips.length === 0}>
 			<Icon name="export" />Export
 		</Button>
 	</div>

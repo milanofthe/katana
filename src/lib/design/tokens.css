@@ -89,6 +89,12 @@
 	--snip-icon-md: 18px;
 	--snip-icon-lg: 20px;
 
+	/* ── Timeline dimensions ───────────────────────────────────── */
+	--snip-timeline-track-height: 128px;
+	--snip-timeline-ruler-height: 24px;
+	/* Uniform clip spacing; must match TIMELINE.gutterPx in constants.ts. */
+	--snip-timeline-gutter: 8px;
+
 	/* ── Elevation ─────────────────────────────────────────────── */
 	--snip-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
 	--snip-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);

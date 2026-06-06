@@ -1,56 +1,36 @@
 <script lang="ts">
 	import { IconButton, Tooltip } from '$lib';
+	import { editor } from '$lib/editor/store.svelte';
+	import { formatTimecode } from '$lib/editor/time';
+	import { TIMELINE } from '$lib/constants';
 
-	interface Props {
-		playing?: boolean;
-		snapping?: boolean;
-		currentTime?: string;
-		duration?: string;
-		onPlayToggle?: () => void;
-		onSkipBack?: () => void;
-		onSkipForward?: () => void;
-		onSplit?: () => void;
-		onTrim?: () => void;
-		onDelete?: () => void;
-		onZoomIn?: () => void;
-		onZoomOut?: () => void;
-		onSnapToggle?: () => void;
+	const hasClip = $derived(editor.selectedClip !== null);
+	const currentTime = $derived(formatTimecode(editor.playhead));
+	const duration = $derived(formatTimecode(editor.activeDuration));
+
+	function deleteSelected() {
+		if (editor.selectedId) editor.removeClip(editor.selectedId);
 	}
-
-	let {
-		playing = false,
-		snapping = false,
-		currentTime = '00:00:00',
-		duration = '00:00:00',
-		onPlayToggle,
-		onSkipBack,
-		onSkipForward,
-		onSplit,
-		onTrim,
-		onDelete,
-		onZoomIn,
-		onZoomOut,
-		onSnapToggle
-	}: Props = $props();
 </script>
 
 <div class="transport-bar" role="toolbar" aria-label="Transport controls">
 	<!-- Transport group: skip back, play/pause, skip forward -->
 	<div class="group transport">
-		<Tooltip text="Skip back" placement="top">
-			<IconButton icon="skipBack" label="Skip back" size="md" onclick={onSkipBack} />
+		<Tooltip text="To start" placement="top">
+			<IconButton icon="skipBack" label="To start" size="md" disabled={!hasClip} onclick={() => editor.seek(0)} />
 		</Tooltip>
-		<Tooltip text={playing ? 'Pause' : 'Play'} placement="top">
+		<Tooltip text={editor.playing ? 'Pause' : 'Play'} placement="top">
 			<IconButton
-				icon={playing ? 'pause' : 'play'}
-				label={playing ? 'Pause' : 'Play'}
+				icon={editor.playing ? 'pause' : 'play'}
+				label={editor.playing ? 'Pause' : 'Play'}
 				size="lg"
 				variant="accent"
-				onclick={onPlayToggle}
+				disabled={!hasClip}
+				onclick={() => editor.togglePlay()}
 			/>
 		</Tooltip>
-		<Tooltip text="Skip forward" placement="top">
-			<IconButton icon="skipForward" label="Skip forward" size="md" onclick={onSkipForward} />
+		<Tooltip text="To end" placement="top">
+			<IconButton icon="skipForward" label="To end" size="md" disabled={!hasClip} onclick={() => editor.seek(editor.activeDuration)} />
 		</Tooltip>
 	</div>
 
@@ -61,41 +41,33 @@
 		<span class="time-duration">{duration}</span>
 	</div>
 
-	<!-- Flexible spacer -->
 	<div class="spacer" aria-hidden="true"></div>
 
 	<!-- Editing tools group: split, trim, delete -->
 	<div class="group tools">
 		<Tooltip text="Split" placement="top">
-			<IconButton icon="scissors" label="Split" size="md" onclick={onSplit} />
+			<IconButton icon="scissors" label="Split" size="md" disabled={!hasClip} />
 		</Tooltip>
 		<Tooltip text="Trim" placement="top">
-			<IconButton icon="trim" label="Trim" size="md" onclick={onTrim} />
+			<IconButton icon="trim" label="Trim" size="md" disabled={!hasClip} />
 		</Tooltip>
 		<Tooltip text="Delete clip" placement="top">
-			<IconButton icon="trash" label="Delete clip" size="md" onclick={onDelete} />
+			<IconButton icon="trash" label="Delete clip" size="md" disabled={!hasClip} onclick={deleteSelected} />
 		</Tooltip>
 	</div>
 
-	<!-- Divider -->
 	<span class="divider" aria-hidden="true"></span>
 
 	<!-- Zoom and snap group -->
 	<div class="group zoom-snap">
 		<Tooltip text="Zoom out" placement="top">
-			<IconButton icon="zoomOut" label="Zoom out" size="md" onclick={onZoomOut} />
+			<IconButton icon="zoomOut" label="Zoom out" size="md" onclick={() => editor.zoomBy(1 / TIMELINE.zoomStep)} />
 		</Tooltip>
 		<Tooltip text="Zoom in" placement="top">
-			<IconButton icon="zoomIn" label="Zoom in" size="md" onclick={onZoomIn} />
+			<IconButton icon="zoomIn" label="Zoom in" size="md" onclick={() => editor.zoomBy(TIMELINE.zoomStep)} />
 		</Tooltip>
 		<Tooltip text="Snapping" placement="top">
-			<IconButton
-				icon="magnet"
-				label="Snapping"
-				size="md"
-				active={snapping}
-				onclick={onSnapToggle}
-			/>
+			<IconButton icon="magnet" label="Snapping" size="md" active={editor.snapping} onclick={() => editor.toggleSnap()} />
 		</Tooltip>
 	</div>
 </div>
@@ -113,14 +85,12 @@
 		flex-shrink: 0;
 	}
 
-	/* Button groups — tighter internal spacing */
 	.group {
 		display: flex;
 		align-items: center;
 		gap: var(--snip-space-1);
 	}
 
-	/* Timecode display */
 	.timecode {
 		display: flex;
 		align-items: baseline;
@@ -130,22 +100,18 @@
 		font-variant-numeric: tabular-nums;
 		user-select: none;
 	}
-
 	.time-current {
 		color: var(--snip-accent);
 	}
-
 	.time-separator,
 	.time-duration {
 		color: var(--snip-text-muted);
 	}
 
-	/* Flexible spacer pushes tools/zoom to the right */
 	.spacer {
 		flex: 1;
 	}
 
-	/* Thin vertical divider between tool groups */
 	.divider {
 		display: block;
 		width: var(--snip-border-width);

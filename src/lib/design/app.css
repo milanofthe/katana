@@ -8,9 +8,15 @@
 
 html {
 	color-scheme: dark;
+	height: 100%;
+	/* Paint the whole surface opaque so the desktop never shows through. */
+	background: var(--snip-bg-base);
 }
 
 body {
+	height: 100%;
+	width: 100%;
+	overflow: hidden;
 	background: var(--snip-bg-base);
 	color: var(--snip-text-primary);
 	font-family: var(--snip-font-sans);
