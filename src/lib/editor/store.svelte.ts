@@ -1,6 +1,6 @@
 // Central reactive editor state (Svelte 5 runes). Single source of truth for
 // the timeline EDL, playback and view. Editor components bind to this directly.
-import { TIMELINE } from '$lib/constants';
+import { TIMELINE, CLIP } from '$lib/constants';
 
 export interface Clip {
 	id: string;
@@ -9,6 +9,8 @@ export interface Clip {
 	/** Original file path on disk (for FFmpeg later). */
 	path: string;
 	name: string;
+	/** Full length of the source media in seconds (trim upper bound). */
+	sourceDuration: number;
 	/** Trim handles, in seconds into the source media. */
 	inPoint: number;
 	outPoint: number;
@@ -31,18 +33,28 @@ class EditorStore {
 	playing = $state(false);
 	snapping = $state(true);
 	pxPerSec = $state<number>(TIMELINE.defaultPxPerSec);
+	/** True while a file is being dragged over the window (for the drop overlay). */
+	dropActive = $state(false);
 
 	totalDuration = $derived(this.clips.reduce((sum, c) => sum + clipDuration(c), 0));
 	selectedClip = $derived(this.clips.find((c) => c.id === this.selectedId) ?? null);
-	/** Trimmed length of the active clip, used for the transport readout. */
 	activeDuration = $derived(this.selectedClip ? clipDuration(this.selectedClip) : 0);
+
+	/** Timeline offset (seconds) where the selected clip starts. */
+	selectedStart = $derived.by(() => {
+		let acc = 0;
+		for (const c of this.clips) {
+			if (c.id === this.selectedId) return acc;
+			acc += clipDuration(c);
+		}
+		return 0;
+	});
+	/** Playhead position along the whole timeline, in seconds. */
+	globalPlayhead = $derived(this.selectedStart + this.playhead);
 
 	addClip(clip: Clip) {
 		this.clips.push(clip);
-		// Auto-select the first imported clip so the preview has something to show.
-		if (this.selectedId === null) {
-			this.select(clip.id);
-		}
+		if (this.selectedId === null) this.select(clip.id);
 	}
 
 	removeClip(id: string) {
@@ -55,10 +67,24 @@ class EditorStore {
 		}
 	}
 
+	removeSelected() {
+		if (this.selectedId) this.removeClip(this.selectedId);
+	}
+
 	select(id: string | null) {
 		this.selectedId = id;
 		this.playhead = 0;
 		this.playing = false;
+	}
+
+	selectPrev() {
+		const idx = this.clips.findIndex((c) => c.id === this.selectedId);
+		if (idx > 0) this.select(this.clips[idx - 1].id);
+	}
+
+	selectNext() {
+		const idx = this.clips.findIndex((c) => c.id === this.selectedId);
+		if (idx >= 0 && idx < this.clips.length - 1) this.select(this.clips[idx + 1].id);
 	}
 
 	togglePlay() {
@@ -75,8 +101,58 @@ class EditorStore {
 		this.playhead = clamp(seconds, 0, this.activeDuration);
 	}
 
+	/** Seek to a position on the whole timeline; selects the clip under it. */
+	seekGlobal(globalSeconds: number) {
+		if (this.clips.length === 0) return;
+		const t = Math.max(0, globalSeconds);
+		let acc = 0;
+		for (let i = 0; i < this.clips.length; i++) {
+			const c = this.clips[i];
+			const d = clipDuration(c);
+			if (t < acc + d || i === this.clips.length - 1) {
+				this.selectedId = c.id;
+				this.playhead = clamp(t - acc, 0, d);
+				return;
+			}
+			acc += d;
+		}
+	}
+
+	/** Nudge the global playhead by delta seconds (arrow keys). */
+	stepBy(deltaSeconds: number) {
+		this.seekGlobal(this.globalPlayhead + deltaSeconds);
+	}
+
 	zoomBy(factor: number) {
 		this.pxPerSec = clamp(this.pxPerSec * factor, TIMELINE.minPxPerSec, TIMELINE.maxPxPerSec);
+	}
+
+	/** Split the active clip into two at the playhead. */
+	splitAtPlayhead() {
+		const c = this.selectedClip;
+		if (!c) return;
+		const splitPoint = c.inPoint + this.playhead;
+		if (splitPoint <= c.inPoint + CLIP.minDurationSec) return;
+		if (splitPoint >= c.outPoint - CLIP.minDurationSec) return;
+		const idx = this.clips.findIndex((x) => x.id === c.id);
+		const left: Clip = { ...c, id: crypto.randomUUID(), outPoint: splitPoint };
+		const right: Clip = { ...c, id: crypto.randomUUID(), inPoint: splitPoint };
+		this.clips.splice(idx, 1, left, right);
+		this.selectedId = right.id;
+		this.playhead = 0;
+	}
+
+	/** Trim handles (drag), clamped to keep a minimum length within the source. */
+	setInPoint(id: string, value: number) {
+		const c = this.clips.find((x) => x.id === id);
+		if (!c) return;
+		c.inPoint = clamp(value, 0, c.outPoint - CLIP.minDurationSec);
+	}
+
+	setOutPoint(id: string, value: number) {
+		const c = this.clips.find((x) => x.id === id);
+		if (!c) return;
+		c.outPoint = clamp(value, c.inPoint + CLIP.minDurationSec, c.sourceDuration);
 	}
 }
 

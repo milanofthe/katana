@@ -4,6 +4,8 @@
 	import { formatTimecode } from '$lib/editor/time';
 	import { TIMELINE } from '$lib/constants';
 
+	let contentEl: HTMLDivElement | undefined = $state();
+
 	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
 	// Lay clips end to end; a gutter is carved off each right edge for separation.
@@ -23,16 +25,7 @@
 		});
 	});
 
-	// Global playhead = durations of clips before the selected one + local playhead.
-	const selectedStart = $derived.by(() => {
-		let acc = 0;
-		for (const c of editor.clips) {
-			if (c.id === editor.selectedId) return acc;
-			acc += clipDuration(c);
-		}
-		return 0;
-	});
-	const playheadX = $derived((selectedStart + editor.playhead) * editor.pxPerSec + TIMELINE.gutterPx);
+	const playheadX = $derived(editor.globalPlayhead * editor.pxPerSec + TIMELINE.gutterPx);
 
 	function niceInterval(targetSeconds: number): number {
 		if (targetSeconds <= 0) return 1;
@@ -57,6 +50,44 @@
 		return out;
 	});
 
+	/** Convert a client X coordinate to a timeline position in seconds. */
+	function pointerToSeconds(clientX: number): number {
+		if (!contentEl) return 0;
+		const rect = contentEl.getBoundingClientRect();
+		return (clientX - rect.left - TIMELINE.gutterPx) / editor.pxPerSec;
+	}
+
+	// Scrub the playhead by clicking/dragging the ruler.
+	function startScrub(e: PointerEvent) {
+		e.preventDefault();
+		editor.seekGlobal(pointerToSeconds(e.clientX));
+		const onMove = (ev: PointerEvent) => editor.seekGlobal(pointerToSeconds(ev.clientX));
+		const onUp = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+	}
+
+	// Trim a clip edge by dragging its handle.
+	function startTrim(e: PointerEvent, clipId: string, edge: 'start' | 'end', startIn: number, startOut: number) {
+		e.preventDefault();
+		e.stopPropagation();
+		const startX = e.clientX;
+		const onMove = (ev: PointerEvent) => {
+			const delta = (ev.clientX - startX) / editor.pxPerSec;
+			if (edge === 'start') editor.setInPoint(clipId, startIn + delta);
+			else editor.setOutPoint(clipId, startOut + delta);
+		};
+		const onUp = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+	}
+
 	// Plain wheel scrolls horizontally; Ctrl/Cmd+wheel zooms. Non-passive so
 	// preventDefault works.
 	function wheelZoomScroll(node: HTMLElement) {
@@ -80,9 +111,10 @@
 
 <div class="timeline">
 	<div class="tl-scroll" use:wheelZoomScroll>
-		<div class="tl-content" style="width: {contentWidth}px">
-			<!-- Ruler: ticks with left-anchored labels -->
-			<div class="ruler">
+		<div class="tl-content" bind:this={contentEl} style="width: {contentWidth}px">
+			<!-- Ruler doubles as the scrub bar -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -- pointer scrubbing; keyboard via arrow-key shortcuts -->
+			<div class="ruler" onpointerdown={startScrub}>
 				{#each ticks as tick (tick.x)}
 					<div class="tick" style="left: {tick.x}px">
 						<div class="tick-mark"></div>
@@ -99,6 +131,11 @@
 						class:selected={p.clip.id === editor.selectedId}
 						style="left: {p.left}px; width: {p.width}px"
 					>
+						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
+						<div
+							class="trim-handle trim-start"
+							onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint)}
+						></div>
 						<button class="clip-surface" onclick={() => editor.select(p.clip.id)} aria-label="Select {p.clip.name}">
 							<div
 								class="clip-thumb"
@@ -113,6 +150,11 @@
 								<span class="clip-dur snip-mono">{formatTimecode(p.dur)}</span>
 							</div>
 						</button>
+						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
+						<div
+							class="trim-handle trim-end"
+							onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint)}
+						></div>
 						<div class="clip-actions">
 							<IconButton icon="trash" label="Remove clip" size="sm" onclick={() => editor.removeClip(p.clip.id)} />
 						</div>
@@ -129,7 +171,7 @@
 		</div>
 
 		{#if editor.clips.length === 0}
-			<div class="tl-empty">Import media to start editing</div>
+			<div class="tl-empty">Import or drop a video to start editing</div>
 		{/if}
 	</div>
 </div>
@@ -144,7 +186,6 @@
 		user-select: none;
 	}
 
-	/* Horizontal scroll viewport */
 	.tl-scroll {
 		position: relative;
 		overflow-x: auto;
@@ -165,11 +206,12 @@
 		min-width: 100%;
 	}
 
-	/* Ruler */
+	/* Ruler (also the scrub bar) */
 	.ruler {
 		position: relative;
 		height: var(--snip-timeline-ruler-height);
 		border-bottom: var(--snip-border-width) solid var(--snip-border);
+		cursor: pointer;
 	}
 	.tick {
 		position: absolute;
@@ -250,7 +292,6 @@
 		opacity: 0.5;
 	}
 
-	/* Footer: name + duration */
 	.clip-meta {
 		display: flex;
 		align-items: center;
@@ -275,6 +316,30 @@
 		color: var(--snip-text-muted);
 	}
 
+	/* Trim handles at each clip edge */
+	.trim-handle {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: var(--snip-space-2);
+		z-index: 2;
+		cursor: ew-resize;
+		background: transparent;
+		transition: background var(--snip-duration-fast) var(--snip-ease-out);
+	}
+	.trim-start {
+		left: 0;
+	}
+	.trim-end {
+		right: 0;
+	}
+	.clip:hover .trim-handle {
+		background: var(--snip-accent-muted);
+	}
+	.trim-handle:hover {
+		background: var(--snip-accent);
+	}
+
 	/* Per-clip action buttons, revealed on hover */
 	.clip-actions {
 		position: absolute;
@@ -283,6 +348,7 @@
 		display: flex;
 		gap: var(--snip-space-1);
 		opacity: 0;
+		z-index: 3;
 		transition: opacity var(--snip-duration-fast) var(--snip-ease-out);
 	}
 	.clip:hover .clip-actions,

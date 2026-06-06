@@ -43,15 +43,12 @@
 
 	<div class="spacer" aria-hidden="true"></div>
 
-	<!-- Editing tools group: split, trim, delete -->
+	<!-- Editing tools group: split, delete -->
 	<div class="group tools">
-		<Tooltip text="Split" placement="top">
-			<IconButton icon="scissors" label="Split" size="md" disabled={!hasClip} />
+		<Tooltip text="Split (S)" placement="top">
+			<IconButton icon="scissors" label="Split" size="md" disabled={!hasClip} onclick={() => editor.splitAtPlayhead()} />
 		</Tooltip>
-		<Tooltip text="Trim" placement="top">
-			<IconButton icon="trim" label="Trim" size="md" disabled={!hasClip} />
-		</Tooltip>
-		<Tooltip text="Delete clip" placement="top">
+		<Tooltip text="Delete (Del)" placement="top">
 			<IconButton icon="trash" label="Delete clip" size="md" disabled={!hasClip} onclick={deleteSelected} />
 		</Tooltip>
 	</div>

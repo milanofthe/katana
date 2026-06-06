@@ -28,3 +28,15 @@ export const PLAYER = {
 	 */
 	seekThresholdSec: 0.25
 } as const;
+
+export const SEEK = {
+	/** Arrow-key playhead step (seconds). */
+	stepSec: 1,
+	/** Shift+arrow playhead step (seconds). */
+	bigStepSec: 5
+} as const;
+
+export const CLIP = {
+	/** Minimum clip length kept when trimming or splitting (seconds). */
+	minDurationSec: 0.1
+} as const;

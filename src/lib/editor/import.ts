@@ -1,9 +1,15 @@
-// Media import: native file picker -> probe duration -> add a clip to the store.
+// Media import: from the native picker or a file drop. Resolves an asset URL,
+// probes the duration, and appends a clip to the store.
 import { open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { editor } from './store.svelte';
 
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'];
+
+function isVideoPath(path: string): boolean {
+	const ext = path.split('.').pop()?.toLowerCase() ?? '';
+	return VIDEO_EXTENSIONS.includes(ext);
+}
 
 /** Read a media file's duration (seconds) via a throwaway <video> element. */
 function probeDuration(src: string): Promise<number> {
@@ -16,16 +22,10 @@ function probeDuration(src: string): Promise<number> {
 	});
 }
 
-/** Open the native file picker and append the chosen video(s) to the timeline. */
-export async function importMedia(): Promise<void> {
-	const selected = await open({
-		multiple: true,
-		filters: [{ name: 'Video', extensions: VIDEO_EXTENSIONS }]
-	});
-	if (!selected) return;
-
-	const paths = Array.isArray(selected) ? selected : [selected];
+/** Append one or more video files (by absolute path) to the timeline. */
+export async function importPaths(paths: string[]): Promise<void> {
 	for (const path of paths) {
+		if (!isVideoPath(path)) continue;
 		const src = convertFileSrc(path);
 		const duration = await probeDuration(src);
 		const name = path.split(/[\\/]/).pop() ?? 'clip';
@@ -34,8 +34,20 @@ export async function importMedia(): Promise<void> {
 			src,
 			path,
 			name,
+			sourceDuration: duration,
 			inPoint: 0,
 			outPoint: duration
 		});
 	}
+}
+
+/** Open the native file picker and append the chosen video(s). */
+export async function importMedia(): Promise<void> {
+	const selected = await open({
+		multiple: true,
+		filters: [{ name: 'Video', extensions: VIDEO_EXTENSIONS }]
+	});
+	if (!selected) return;
+	const paths = Array.isArray(selected) ? selected : [selected];
+	await importPaths(paths);
 }
