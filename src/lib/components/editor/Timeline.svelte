@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { Icon, IconButton } from '$lib';
 	import { editor, clipDuration, clipEnd, type Clip } from '$lib/editor/store.svelte';
+	import { scrubAudio } from '$lib/editor/waveform';
 	import { formatTimecode } from '$lib/editor/time';
-	import { TIMELINE, REORDER, THUMB } from '$lib/constants';
+	import { TIMELINE, REORDER, THUMB, WAVEFORM } from '$lib/constants';
+	import { color } from '$lib/design/theme';
 
 	// Frames for a clip's filmstrip: one per AR-correct slot across its width,
 	// each showing the captured frame nearest that timeline position. Reacts to
@@ -22,6 +24,64 @@
 			out.push(frames[Math.max(0, Math.min(frames.length - 1, idx))]);
 		}
 		return out;
+	}
+
+	interface WaveParams {
+		peaks?: number[];
+		inPoint: number;
+		outPoint: number;
+		sourceDuration: number;
+		width: number;
+	}
+
+	// Draw the clip's waveform slice onto a canvas (one bar per output pixel).
+	// Cheaper and crisper than thousands of DOM nodes; redraws on param change.
+	function waveCanvas(node: HTMLCanvasElement, params: WaveParams) {
+		function draw(p: WaveParams) {
+			const h = node.clientHeight;
+			const w = p.width;
+			if (h === 0 || w === 0) {
+				requestAnimationFrame(() => draw(p));
+				return;
+			}
+			const dpr = window.devicePixelRatio || 1;
+			node.width = Math.max(1, Math.floor(w * dpr));
+			node.height = Math.max(1, Math.floor(h * dpr));
+			const cx = node.getContext('2d');
+			if (!cx) return;
+			cx.clearRect(0, 0, node.width, node.height);
+			if (!p.peaks || p.peaks.length === 0 || p.sourceDuration <= 0) return;
+			cx.scale(dpr, dpr);
+			const n = p.peaks.length;
+			const i0 = Math.floor((p.inPoint / p.sourceDuration) * n);
+			const i1 = Math.ceil((p.outPoint / p.sourceDuration) * n);
+			const span = Math.max(1, i1 - i0);
+			const mid = h / 2;
+			cx.fillStyle = color.accent;
+			cx.globalAlpha = WAVEFORM.alpha;
+			const cols = Math.max(1, Math.floor(w));
+			for (let xc = 0; xc < cols; xc++) {
+				const idx = i0 + Math.floor((xc / cols) * span);
+				const peak = p.peaks[Math.max(0, Math.min(n - 1, idx))] || 0;
+				const barH = Math.max(1, peak * h);
+				cx.fillRect(xc, mid - barH / 2, 1, barH);
+			}
+		}
+		draw(params);
+		return {
+			update(p: WaveParams) {
+				draw(p);
+			}
+		};
+	}
+
+	// Audio scrubbing: play a short grain from the topmost clip under the playhead.
+	function scrubFeedback() {
+		const active = editor.activeClips;
+		const top = active[active.length - 1];
+		if (!top) return;
+		const sourceTime = top.inPoint + (editor.playhead - top.start) * top.speed;
+		scrubAudio(top.path, sourceTime, performance.now());
 	}
 
 	let contentEl: HTMLDivElement | undefined = $state();
@@ -131,11 +191,15 @@
 		e.preventDefault();
 		editor.pause();
 		editor.seek(snapSeconds(pointerToSeconds(e.clientX), null));
+		scrubFeedback();
 		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
 			const x = ev.clientX;
 			cancelAnimationFrame(raf);
-			raf = requestAnimationFrame(() => editor.seek(snapSeconds(pointerToSeconds(x), null)));
+			raf = requestAnimationFrame(() => {
+				editor.seek(snapSeconds(pointerToSeconds(x), null));
+				scrubFeedback();
+			});
 		};
 		const onUp = () => {
 			cancelAnimationFrame(raf);
@@ -321,6 +385,18 @@
 										{:else}
 											<Icon name="film" class="thumb-glyph" />
 										{/if}
+										{#if editor.waveforms[p.clip.path]}
+											<canvas
+												class="wave"
+												use:waveCanvas={{
+													peaks: editor.waveforms[p.clip.path],
+													inPoint: p.clip.inPoint,
+													outPoint: p.clip.outPoint,
+													sourceDuration: p.clip.sourceDuration,
+													width: p.width
+												}}
+											></canvas>
+										{/if}
 									</div>
 									<div class="clip-meta">
 										<span class="clip-name">{p.clip.name}</span>
@@ -483,6 +559,7 @@
 
 	/* Filmstrip preview area */
 	.clip-thumb {
+		position: relative;
 		flex: 1;
 		min-height: 0;
 		display: flex;
@@ -492,6 +569,16 @@
 		background-color: var(--katana-bg-base);
 		font-size: var(--katana-text-xl);
 		color: var(--katana-text-muted);
+	}
+
+	/* Waveform overlay along the bottom of the filmstrip. */
+	.wave {
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		width: 100%;
+		height: 45%;
+		pointer-events: none;
 	}
 	.clip-thumb.empty {
 		align-items: center;

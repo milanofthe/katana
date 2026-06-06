@@ -97,6 +97,8 @@ class EditorStore {
 	notice = $state<{ text: string; kind: 'ok' | 'error' } | null>(null);
 	/** Project output format. */
 	aspectRatio = $state<AspectRatio>('original');
+	/** Peak data per source path for the timeline waveform (not undoable). */
+	waveforms = $state<Record<string, number[]>>({});
 
 	/** Project length: the latest clip end across all tracks. */
 	totalDuration = $derived(this.clips.reduce((max, c) => Math.max(max, clipEnd(c)), 0));
@@ -404,6 +406,11 @@ class EditorStore {
 
 	notify(text: string, kind: 'ok' | 'error' = 'ok') {
 		this.notice = { text, kind };
+	}
+
+	/** Store extracted waveform peaks for a source path (keyed by clip.path). */
+	setWaveform(path: string, peaks: number[]) {
+		this.waveforms[path] = peaks;
 	}
 
 	/** Update a clip's viewport placement (drag / scale). */

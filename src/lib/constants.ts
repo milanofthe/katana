@@ -69,6 +69,24 @@ export const HISTORY = {
 	wheelCommitMs: 300
 } as const;
 
+export const WAVEFORM = {
+	/** Peak buckets sampled per source for the timeline waveform. */
+	resolution: 1200,
+	/** Max samples inspected per bucket (stride caps the one-time decode cost). */
+	maxSamplesPerBucket: 64,
+	/** Waveform opacity when drawn over the filmstrip. */
+	alpha: 0.55
+} as const;
+
+export const AUDIO_SCRUB = {
+	/** Grain length played per scrub tick (seconds). */
+	grainSec: 0.12,
+	/** Fade in/out of each grain to avoid clicks (seconds). */
+	grainFadeSec: 0.012,
+	/** Minimum interval between scrub grains (ms). */
+	throttleMs: 55
+} as const;
+
 export const VIEWPORT = {
 	/** Snap distance (normalized to viewport size) when dragging near center/edges. */
 	snapThreshold: 0.025,

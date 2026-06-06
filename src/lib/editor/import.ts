@@ -4,6 +4,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { editor } from './store.svelte';
+import { ensureWaveform } from './waveform';
 import { THUMB } from '$lib/constants';
 
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'];
@@ -137,6 +138,8 @@ export async function importPaths(paths: string[]): Promise<void> {
 				speed: 1,
 				transform: { x: 0, y: 0, scale: 1 }
 			});
+			// Extract the waveform in the background (don't block import).
+			void ensureWaveform(src, path);
 		} finally {
 			editor.importing--;
 		}
