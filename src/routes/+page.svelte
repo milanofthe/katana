@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { TopBar, PreviewPane, TransportBar, Timeline } from '$lib/components/editor';
+	import {
+		TopBar,
+		PreviewPane,
+		TransportBar,
+		Timeline,
+		PropertiesPanel
+	} from '$lib/components/editor';
 	import { handleEditorKeydown } from '$lib/editor/keyboard';
 	import { setupDragDrop } from '$lib/editor/dragdrop';
 	import { editor } from '$lib/editor/store.svelte';
@@ -23,7 +29,10 @@
 
 <div class="editor">
 	<TopBar />
-	<PreviewPane />
+	<div class="stage-row">
+		<PreviewPane />
+		<PropertiesPanel />
+	</div>
 	<TransportBar />
 	<Timeline />
 
@@ -42,6 +51,13 @@
 		height: 100%;
 		background: var(--katana-bg-base);
 		overflow: hidden;
+	}
+
+	/* Preview + properties panel side by side */
+	.stage-row {
+		display: flex;
+		flex: 1;
+		min-height: 0;
 	}
 
 	.drop-overlay {

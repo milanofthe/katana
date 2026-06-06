@@ -13,3 +13,4 @@ export { default as Logo } from './components/Logo.svelte';
 export { default as Button } from './components/Button.svelte';
 export { default as IconButton } from './components/IconButton.svelte';
 export { default as Tooltip } from './components/Tooltip.svelte';
+export { default as Slider } from './components/Slider.svelte';

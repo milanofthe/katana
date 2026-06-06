@@ -38,7 +38,10 @@ export const SEEK = {
 
 export const CLIP = {
 	/** Minimum clip length kept when trimming or splitting (seconds). */
-	minDurationSec: 0.1
+	minDurationSec: 0.1,
+	/** Playback speed bounds. */
+	minSpeed: 0.25,
+	maxSpeed: 4
 } as const;
 
 export const THUMB = {

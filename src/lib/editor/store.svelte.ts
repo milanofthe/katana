@@ -2,6 +2,8 @@
 // the timeline EDL, playback and view. Editor components bind to this directly.
 import { TIMELINE, CLIP } from '$lib/constants';
 
+export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
+
 export interface Clip {
 	id: string;
 	/** Asset URL the <video> can load (from convertFileSrc). */
@@ -18,11 +20,24 @@ export interface Clip {
 	aspectRatio: number;
 	/** Preview frames captured evenly across the source (filmstrip thumbnails). */
 	thumbnails: string[];
+	/** Audio level 0..1. */
+	volume: number;
+	muted: boolean;
+	/** Audio fade in/out, in timeline seconds. */
+	fadeInSec: number;
+	fadeOutSec: number;
+	/** Playback speed multiplier (0.25..4). */
+	speed: number;
 }
 
-/** Visible (trimmed) length of a clip in seconds. */
-export function clipDuration(c: Clip): number {
+/** Untrimmed source span (seconds). */
+export function clipSourceSpan(c: Clip): number {
 	return Math.max(0, c.outPoint - c.inPoint);
+}
+
+/** Visible timeline length (seconds), shortened/lengthened by playback speed. */
+export function clipDuration(c: Clip): number {
+	return clipSourceSpan(c) / (c.speed || 1);
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
@@ -30,13 +45,15 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 class EditorStore {
 	clips = $state<Clip[]>([]);
 	selectedId = $state<string | null>(null);
-	/** Playhead position within the selected clip, in seconds. */
+	/** Playhead position within the selected clip, in timeline seconds. */
 	playhead = $state(0);
 	playing = $state(false);
 	snapping = $state(true);
 	pxPerSec = $state<number>(TIMELINE.defaultPxPerSec);
 	/** True while a file is being dragged over the window (for the drop overlay). */
 	dropActive = $state(false);
+	/** Project output format. */
+	aspectRatio = $state<AspectRatio>('original');
 
 	totalDuration = $derived(this.clips.reduce((sum, c) => sum + clipDuration(c), 0));
 	selectedClip = $derived(this.clips.find((c) => c.id === this.selectedId) ?? null);
@@ -98,7 +115,7 @@ class EditorStore {
 		this.snapping = !this.snapping;
 	}
 
-	/** Seek within the active clip (seconds). */
+	/** Seek within the active clip (timeline seconds). */
 	seek(seconds: number) {
 		this.playhead = clamp(seconds, 0, this.activeDuration);
 	}
@@ -133,7 +150,8 @@ class EditorStore {
 	splitAtPlayhead() {
 		const c = this.selectedClip;
 		if (!c) return;
-		const splitPoint = c.inPoint + this.playhead;
+		// Playhead is timeline time; convert to a source-time cut point.
+		const splitPoint = c.inPoint + this.playhead * c.speed;
 		if (splitPoint <= c.inPoint + CLIP.minDurationSec) return;
 		if (splitPoint >= c.outPoint - CLIP.minDurationSec) return;
 		const idx = this.clips.findIndex((x) => x.id === c.id);
@@ -164,6 +182,39 @@ class EditorStore {
 		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
 		c.outPoint = clamp(value, c.inPoint + CLIP.minDurationSec, c.sourceDuration);
+	}
+
+	// ── Clip properties (act on the selected clip) ──────────────
+	setVolume(v: number) {
+		const c = this.selectedClip;
+		if (c) c.volume = clamp(v, 0, 1);
+	}
+
+	toggleClipMute() {
+		const c = this.selectedClip;
+		if (c) c.muted = !c.muted;
+	}
+
+	setFadeIn(seconds: number) {
+		const c = this.selectedClip;
+		if (c) c.fadeInSec = clamp(seconds, 0, clipDuration(c));
+	}
+
+	setFadeOut(seconds: number) {
+		const c = this.selectedClip;
+		if (c) c.fadeOutSec = clamp(seconds, 0, clipDuration(c));
+	}
+
+	setSpeed(v: number) {
+		const c = this.selectedClip;
+		if (!c) return;
+		c.speed = clamp(v, CLIP.minSpeed, CLIP.maxSpeed);
+		// Timeline duration just changed; keep the playhead inside the clip.
+		this.playhead = clamp(this.playhead, 0, clipDuration(c));
+	}
+
+	setAspectRatio(ar: AspectRatio) {
+		this.aspectRatio = ar;
 	}
 }
 

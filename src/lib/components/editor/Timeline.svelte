@@ -13,10 +13,10 @@
 		const ar = clip.aspectRatio || 16 / 9;
 		const frameW = THUMB.stripHeightPx * ar;
 		const slots = Math.max(1, Math.ceil(widthPx / frameW) + 1);
-		const dur = clipDuration(clip);
+		const span = clip.outPoint - clip.inPoint; // source-time span (speed-independent)
 		const out: string[] = [];
 		for (let i = 0; i < slots; i++) {
-			const t = clip.inPoint + ((i + 0.5) / slots) * dur;
+			const t = clip.inPoint + ((i + 0.5) / slots) * span;
 			const frac = clip.sourceDuration > 0 ? t / clip.sourceDuration : 0;
 			const idx = Math.round(frac * (frames.length - 1));
 			out.push(frames[Math.max(0, Math.min(frames.length - 1, idx))]);
@@ -156,12 +156,20 @@
 	}
 
 	// Trim a clip edge by dragging its handle.
-	function startTrim(e: PointerEvent, clipId: string, edge: 'start' | 'end', startIn: number, startOut: number) {
+	function startTrim(
+		e: PointerEvent,
+		clipId: string,
+		edge: 'start' | 'end',
+		startIn: number,
+		startOut: number,
+		speed: number
+	) {
 		e.preventDefault();
 		e.stopPropagation();
 		const startX = e.clientX;
 		const onMove = (ev: PointerEvent) => {
-			const delta = (ev.clientX - startX) / editor.pxPerSec;
+			// Pixel delta -> timeline seconds -> source seconds (scaled by speed).
+			const delta = ((ev.clientX - startX) / editor.pxPerSec) * speed;
 			if (edge === 'start') editor.setInPoint(clipId, startIn + delta);
 			else editor.setOutPoint(clipId, startOut + delta);
 		};
@@ -222,7 +230,7 @@
 						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
 						<div
 							class="trim-handle trim-start"
-							onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint)}
+							onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
 						></div>
 						<button
 							class="clip-surface"
@@ -251,7 +259,7 @@
 						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
 						<div
 							class="trim-handle trim-end"
-							onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint)}
+							onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
 						></div>
 						<div class="clip-actions">
 							<IconButton icon="trash" label="Remove clip" size="sm" onclick={() => editor.removeClip(p.clip.id)} />

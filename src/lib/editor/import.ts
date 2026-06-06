@@ -114,7 +114,12 @@ export async function importPaths(paths: string[]): Promise<void> {
 			inPoint: 0,
 			outPoint: duration,
 			aspectRatio,
-			thumbnails
+			thumbnails,
+			volume: 1,
+			muted: false,
+			fadeInSec: 0,
+			fadeOutSec: 0,
+			speed: 1
 		});
 	}
 }
