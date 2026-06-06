@@ -105,16 +105,29 @@
 		return idx;
 	}
 
+	// Snap a timeline position to the nearest clip boundary when snapping is on.
+	function snapSeconds(sec: number): number {
+		if (!editor.snapping) return sec;
+		const threshold = TIMELINE.snapThresholdPx / editor.pxPerSec;
+		if (Math.abs(sec) <= threshold) return 0;
+		let acc = 0;
+		for (const c of editor.clips) {
+			acc += clipDuration(c);
+			if (Math.abs(sec - acc) <= threshold) return acc;
+		}
+		return sec;
+	}
+
 	// Scrub the playhead by clicking/dragging the ruler. Throttled to one
 	// seekGlobal per frame (it's O(n) and can swap the previewed clip).
 	function startScrub(e: PointerEvent) {
 		e.preventDefault();
-		editor.seekGlobal(pointerToSeconds(e.clientX));
+		editor.seekGlobal(snapSeconds(pointerToSeconds(e.clientX)));
 		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
 			const x = ev.clientX;
 			cancelAnimationFrame(raf);
-			raf = requestAnimationFrame(() => editor.seekGlobal(pointerToSeconds(x)));
+			raf = requestAnimationFrame(() => editor.seekGlobal(snapSeconds(pointerToSeconds(x))));
 		};
 		const onUp = () => {
 			cancelAnimationFrame(raf);
@@ -241,11 +254,13 @@
 							? ` --drag-dx: ${dragDx}px;`
 							: ''}"
 					>
-						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
-						<div
-							class="trim-handle trim-start"
-							onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
-						></div>
+						{#if p.width >= TIMELINE.minTrimWidthPx}
+							<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
+							<div
+								class="trim-handle trim-start"
+								onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
+							></div>
+						{/if}
 						<button
 							class="clip-surface"
 							onpointerdown={(e) => startClipDrag(e, p.clip.id)}
@@ -270,11 +285,13 @@
 								<span class="clip-dur katana-mono">{formatTimecode(p.dur)}</span>
 							</div>
 						</button>
-						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
-						<div
-							class="trim-handle trim-end"
-							onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
-						></div>
+						{#if p.width >= TIMELINE.minTrimWidthPx}
+							<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
+							<div
+								class="trim-handle trim-end"
+								onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
+							></div>
+						{/if}
 						<div class="clip-actions">
 							<IconButton icon="trash" label="Remove clip" size="sm" onclick={() => editor.removeClip(p.clip.id)} />
 						</div>
@@ -296,7 +313,9 @@
 		</div>
 
 		{#if editor.clips.length === 0}
-			<div class="tl-empty">Import or drop a video to start editing</div>
+			<div class="tl-empty">
+				{editor.importing > 0 ? 'Importing…' : 'Import or drop a video to start editing'}
+			</div>
 		{/if}
 	</div>
 </div>

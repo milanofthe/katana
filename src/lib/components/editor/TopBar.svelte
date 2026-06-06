@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Icon, Button, Logo, Tooltip } from '$lib';
 	import { importMedia } from '$lib/editor/import';
+	import { editor } from '$lib/editor/store.svelte';
 </script>
 
 <header class="top-bar">
@@ -9,8 +10,8 @@
 	</div>
 
 	<div class="actions">
-		<Button variant="secondary" onclick={importMedia}>
-			<Icon name="import" />Import
+		<Button variant="secondary" onclick={importMedia} disabled={editor.importing > 0}>
+			<Icon name="import" />{editor.importing > 0 ? 'Importing…' : 'Import'}
 		</Button>
 		<Tooltip text="Export — coming soon" placement="bottom">
 			<Button variant="primary" disabled>

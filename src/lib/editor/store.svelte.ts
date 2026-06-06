@@ -52,6 +52,8 @@ class EditorStore {
 	pxPerSec = $state<number>(TIMELINE.defaultPxPerSec);
 	/** True while a file is being dragged over the window (for the drop overlay). */
 	dropActive = $state(false);
+	/** Count of in-flight imports (for the busy indicator). */
+	importing = $state(0);
 	/** Project output format. */
 	aspectRatio = $state<AspectRatio>('original');
 

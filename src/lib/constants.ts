@@ -17,8 +17,12 @@ export const TIMELINE = {
 	 * token --katana-timeline-gutter.
 	 */
 	gutterPx: 8,
-	/** Minimum rendered clip width (px) so short clips stay legible. */
-	minClipWidthPx: 8
+	/** Minimum rendered clip width (px) so short clips stay selectable. */
+	minClipWidthPx: 24,
+	/** Snap distance (px) for the playhead near clip boundaries. */
+	snapThresholdPx: 8,
+	/** Below this clip width, hide trim handles so they don't cover the body. */
+	minTrimWidthPx: 48
 } as const;
 
 export const PLAYER = {

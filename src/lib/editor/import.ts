@@ -13,21 +13,33 @@ function isVideoPath(path: string): boolean {
 	return VIDEO_EXTENSIONS.includes(ext);
 }
 
-/** Draw the current video frame to a canvas and return a JPEG data URL. */
-function captureFrame(v: HTMLVideoElement): string | undefined {
-	try {
-		const vw = v.videoWidth || THUMB.width;
-		const vh = v.videoHeight || Math.round((THUMB.width * 9) / 16);
-		const canvas = document.createElement('canvas');
-		canvas.width = THUMB.width;
-		canvas.height = Math.max(1, Math.round((vh / vw) * THUMB.width));
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return undefined;
-		ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-		return canvas.toDataURL('image/jpeg', 0.6);
-	} catch {
-		return undefined; // tainted canvas or decode failure
-	}
+/** Draw the current video frame to a canvas and return a short object-URL
+ * (not a multi-KB base64 string, which would bloat the DOM when inlined into
+ * every filmstrip slot). Object URLs live until page reload — an acceptable
+ * trade vs. the per-slot duplication; clips share frames after a split. */
+function captureFrame(v: HTMLVideoElement): Promise<string | undefined> {
+	return new Promise((resolve) => {
+		try {
+			const vw = v.videoWidth || THUMB.width;
+			const vh = v.videoHeight || Math.round((THUMB.width * 9) / 16);
+			const canvas = document.createElement('canvas');
+			canvas.width = THUMB.width;
+			canvas.height = Math.max(1, Math.round((vh / vw) * THUMB.width));
+			const ctx = canvas.getContext('2d');
+			if (!ctx) {
+				resolve(undefined);
+				return;
+			}
+			ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+			canvas.toBlob(
+				(blob) => resolve(blob ? URL.createObjectURL(blob) : undefined),
+				'image/jpeg',
+				0.6
+			);
+		} catch {
+			resolve(undefined); // tainted canvas or decode failure
+		}
+	});
 }
 
 function loadMetadata(v: HTMLVideoElement): Promise<void> {
@@ -91,7 +103,7 @@ async function probeMedia(src: string): Promise<Probe> {
 		} catch {
 			break;
 		}
-		const frame = captureFrame(v);
+		const frame = await captureFrame(v);
 		if (!frame) break; // tainted canvas -> stop, fall back to glyph
 		thumbnails.push(frame);
 	}
@@ -100,27 +112,33 @@ async function probeMedia(src: string): Promise<Probe> {
 
 /** Append one or more video files (by absolute path) to the timeline. */
 export async function importPaths(paths: string[]): Promise<void> {
-	for (const path of paths) {
-		if (!isVideoPath(path)) continue;
-		const src = convertFileSrc(path);
-		const { duration, aspectRatio, thumbnails } = await probeMedia(src);
-		const name = path.split(/[\\/]/).pop() ?? 'clip';
-		editor.addClip({
-			id: crypto.randomUUID(),
-			src,
-			path,
-			name,
-			sourceDuration: duration,
-			inPoint: 0,
-			outPoint: duration,
-			aspectRatio,
-			thumbnails,
-			volume: 1,
-			muted: false,
-			fadeInSec: 0,
-			fadeOutSec: 0,
-			speed: 1
-		});
+	const videos = paths.filter(isVideoPath);
+	if (videos.length === 0) return;
+	editor.importing += videos.length;
+	for (const path of videos) {
+		try {
+			const src = convertFileSrc(path);
+			const { duration, aspectRatio, thumbnails } = await probeMedia(src);
+			const name = path.split(/[\\/]/).pop() ?? 'clip';
+			editor.addClip({
+				id: crypto.randomUUID(),
+				src,
+				path,
+				name,
+				sourceDuration: duration,
+				inPoint: 0,
+				outPoint: duration,
+				aspectRatio,
+				thumbnails,
+				volume: 1,
+				muted: false,
+				fadeInSec: 0,
+				fadeOutSec: 0,
+				speed: 1
+			});
+		} finally {
+			editor.importing--;
+		}
 	}
 }
 
