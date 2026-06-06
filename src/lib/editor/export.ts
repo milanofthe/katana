@@ -14,21 +14,24 @@ export async function exportProject(): Promise<void> {
 	});
 	if (!output) return;
 
-	// Interim: concatenate in timeline order (by start, then track). True
-	// multi-track compositing export (overlay filtergraph honoring start/track/
-	// transform) lands in Phase 3.
-	const clips = [...editor.clips]
-		.sort((a, b) => a.start - b.start || a.track - b.track)
-		.map((c) => ({
-			path: c.path,
-			inPoint: c.inPoint,
-			outPoint: c.outPoint,
-			speed: c.speed,
-			volume: c.volume,
-			muted: c.muted,
-			fadeIn: c.fadeInSec,
-			fadeOut: c.fadeOutSec
-		}));
+	// Full compositing payload: the Rust exporter overlays each clip by its
+	// start/track (z-order) and transform (x/y/scale) onto the output canvas.
+	const clips = editor.clips.map((c) => ({
+		path: c.path,
+		inPoint: c.inPoint,
+		outPoint: c.outPoint,
+		speed: c.speed,
+		volume: c.volume,
+		muted: c.muted,
+		fadeIn: c.fadeInSec,
+		fadeOut: c.fadeOutSec,
+		start: c.start,
+		track: c.track,
+		x: c.transform.x,
+		y: c.transform.y,
+		scale: c.transform.scale,
+		aspectRatio: c.aspectRatio
+	}));
 
 	editor.exporting = true;
 	editor.exportProgress = 0;
