@@ -43,11 +43,11 @@ export const CLIP = {
 
 export const THUMB = {
 	/** Captured preview frame width (px); height keeps the source aspect ratio. */
-	width: 320,
-	/** Capture position as a fraction of the clip's duration... */
-	atFraction: 0.1,
-	/** ...but no later than this many seconds in. */
-	atMaxSec: 2
+	width: 240,
+	/** Number of frames captured evenly across the source for the filmstrip. */
+	frameCount: 10,
+	/** Assumed filmstrip height (px) used for slot math; tracks the clip thumb height. */
+	stripHeightPx: 88
 } as const;
 
 export const REORDER = {

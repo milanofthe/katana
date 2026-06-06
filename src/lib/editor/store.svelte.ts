@@ -14,8 +14,10 @@ export interface Clip {
 	/** Trim handles, in seconds into the source media. */
 	inPoint: number;
 	outPoint: number;
-	/** Optional preview frame. Real thumbnails come from FFmpeg later. */
-	thumbnail?: string;
+	/** Source aspect ratio (width / height) for AR-correct filmstrip frames. */
+	aspectRatio: number;
+	/** Preview frames captured evenly across the source (filmstrip thumbnails). */
+	thumbnails: string[];
 }
 
 /** Visible (trimmed) length of a clip in seconds. */

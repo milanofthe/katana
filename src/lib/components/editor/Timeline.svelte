@@ -1,8 +1,28 @@
 <script lang="ts">
 	import { Icon, IconButton } from '$lib';
-	import { editor, clipDuration } from '$lib/editor/store.svelte';
+	import { editor, clipDuration, type Clip } from '$lib/editor/store.svelte';
 	import { formatTimecode } from '$lib/editor/time';
-	import { TIMELINE, REORDER } from '$lib/constants';
+	import { TIMELINE, REORDER, THUMB } from '$lib/constants';
+
+	// Frames for a clip's filmstrip: one per AR-correct slot across its width,
+	// each showing the captured frame nearest that timeline position. Reacts to
+	// trim (inPoint/duration) and zoom (width).
+	function filmstripFrames(clip: Clip, widthPx: number): string[] {
+		const frames = clip.thumbnails;
+		if (!frames || frames.length === 0) return [];
+		const ar = clip.aspectRatio || 16 / 9;
+		const frameW = THUMB.stripHeightPx * ar;
+		const slots = Math.max(1, Math.ceil(widthPx / frameW) + 1);
+		const dur = clipDuration(clip);
+		const out: string[] = [];
+		for (let i = 0; i < slots; i++) {
+			const t = clip.inPoint + ((i + 0.5) / slots) * dur;
+			const frac = clip.sourceDuration > 0 ? t / clip.sourceDuration : 0;
+			const idx = Math.round(frac * (frames.length - 1));
+			out.push(frames[Math.max(0, Math.min(frames.length - 1, idx))]);
+		}
+		return out;
+	}
 
 	let contentEl: HTMLDivElement | undefined = $state();
 
@@ -212,9 +232,14 @@
 						>
 							<div
 								class="clip-thumb"
-								style={p.clip.thumbnail ? `background-image: url(${p.clip.thumbnail})` : ''}
+								class:empty={p.clip.thumbnails.length === 0}
+								style="--ar: {p.clip.aspectRatio}"
 							>
-								{#if !p.clip.thumbnail}
+								{#if p.clip.thumbnails.length > 0}
+									{#each filmstripFrames(p.clip, p.width) as frame, i (i)}
+										<div class="frame" style="background-image: url({frame})"></div>
+									{/each}
+								{:else}
 									<Icon name="film" class="thumb-glyph" />
 								{/if}
 							</div>
@@ -362,18 +387,31 @@
 		cursor: grabbing;
 	}
 
-	/* Thumbnail / preview area */
+	/* Filmstrip preview area */
 	.clip-thumb {
 		flex: 1;
 		min-height: 0;
 		display: flex;
-		align-items: center;
-		justify-content: center;
+		align-items: stretch;
+		justify-content: flex-start;
+		overflow: hidden;
 		background-color: var(--katana-bg-base);
-		background-size: cover;
-		background-position: center;
 		font-size: var(--katana-text-xl);
 		color: var(--katana-text-muted);
+	}
+	.clip-thumb.empty {
+		align-items: center;
+		justify-content: center;
+	}
+	.frame {
+		height: 100%;
+		flex: none;
+		aspect-ratio: var(--ar);
+		background-size: cover;
+		background-position: center;
+	}
+	.frame + .frame {
+		border-left: var(--katana-border-width) solid var(--katana-bg-base);
 	}
 	.clip-thumb :global(.thumb-glyph) {
 		opacity: 0.5;
