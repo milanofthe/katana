@@ -49,3 +49,8 @@ export const THUMB = {
 	/** ...but no later than this many seconds in. */
 	atMaxSec: 2
 } as const;
+
+export const REORDER = {
+	/** Pointer travel (px) before a clip click turns into a reorder drag. */
+	dragThresholdPx: 4
+} as const;

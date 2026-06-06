@@ -142,6 +142,15 @@ class EditorStore {
 		this.playhead = 0;
 	}
 
+	/** Move a clip to a new position among the others (reorder by drag). */
+	moveClip(id: string, toIndex: number) {
+		const from = this.clips.findIndex((c) => c.id === id);
+		if (from === -1) return;
+		const [clip] = this.clips.splice(from, 1);
+		const target = clamp(toIndex, 0, this.clips.length);
+		this.clips.splice(target, 0, clip);
+	}
+
 	/** Trim handles (drag), clamped to keep a minimum length within the source. */
 	setInPoint(id: string, value: number) {
 		const c = this.clips.find((x) => x.id === id);

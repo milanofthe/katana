@@ -2,9 +2,16 @@
 	import { Icon, IconButton } from '$lib';
 	import { editor, clipDuration } from '$lib/editor/store.svelte';
 	import { formatTimecode } from '$lib/editor/time';
-	import { TIMELINE } from '$lib/constants';
+	import { TIMELINE, REORDER } from '$lib/constants';
 
 	let contentEl: HTMLDivElement | undefined = $state();
+
+	// Reorder-drag state
+	let dragId = $state<string | null>(null);
+	let dragActive = $state(false);
+	let dragDx = $state(0);
+	let dropIndex = $state(0);
+	let justDragged = false; // suppress the click that follows a drag
 
 	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
@@ -26,6 +33,15 @@
 	});
 
 	const playheadX = $derived(editor.globalPlayhead * editor.pxPerSec + TIMELINE.gutterPx);
+
+	// Drop indicator position (between clips) during a reorder drag.
+	const dropX = $derived.by(() => {
+		const others = placed.filter((p) => p.clip.id !== dragId);
+		if (others.length === 0) return TIMELINE.gutterPx;
+		if (dropIndex <= 0) return others[0].left - TIMELINE.gutterPx / 2;
+		const prev = others[Math.min(dropIndex, others.length) - 1];
+		return prev.left + prev.width + TIMELINE.gutterPx / 2;
+	});
 
 	function niceInterval(targetSeconds: number): number {
 		if (targetSeconds <= 0) return 1;
@@ -50,11 +66,23 @@
 		return out;
 	});
 
-	/** Convert a client X coordinate to a timeline position in seconds. */
-	function pointerToSeconds(clientX: number): number {
+	function pointerToContentX(clientX: number): number {
 		if (!contentEl) return 0;
-		const rect = contentEl.getBoundingClientRect();
-		return (clientX - rect.left - TIMELINE.gutterPx) / editor.pxPerSec;
+		return clientX - contentEl.getBoundingClientRect().left;
+	}
+
+	function pointerToSeconds(clientX: number): number {
+		return (pointerToContentX(clientX) - TIMELINE.gutterPx) / editor.pxPerSec;
+	}
+
+	function computeDropIndex(clientX: number): number {
+		const x = pointerToContentX(clientX);
+		let idx = 0;
+		for (const p of placed) {
+			if (p.clip.id === dragId) continue;
+			if (x > p.left + p.width / 2) idx++;
+		}
+		return idx;
 	}
 
 	// Scrub the playhead by clicking/dragging the ruler.
@@ -68,6 +96,43 @@
 		};
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
+	}
+
+	// Drag a clip body to reorder it; a small threshold separates click from drag.
+	function startClipDrag(e: PointerEvent, id: string) {
+		const startX = e.clientX;
+		dragId = id;
+		dragActive = false;
+		dragDx = 0;
+		const onMove = (ev: PointerEvent) => {
+			const dx = ev.clientX - startX;
+			if (!dragActive && Math.abs(dx) > REORDER.dragThresholdPx) dragActive = true;
+			if (dragActive) {
+				dragDx = dx;
+				dropIndex = computeDropIndex(ev.clientX);
+			}
+		};
+		const onUp = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+			if (dragActive && dragId) {
+				editor.moveClip(dragId, dropIndex);
+				justDragged = true;
+			}
+			dragId = null;
+			dragActive = false;
+			dragDx = 0;
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+	}
+
+	function onClipClick(id: string) {
+		if (justDragged) {
+			justDragged = false;
+			return;
+		}
+		editor.select(id);
 	}
 
 	// Trim a clip edge by dragging its handle.
@@ -129,14 +194,22 @@
 					<div
 						class="clip"
 						class:selected={p.clip.id === editor.selectedId}
-						style="left: {p.left}px; width: {p.width}px"
+						class:dragging={p.clip.id === dragId && dragActive}
+						style="left: {p.left}px; width: {p.width}px;{p.clip.id === dragId && dragActive
+							? ` --drag-dx: ${dragDx}px;`
+							: ''}"
 					>
 						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
 						<div
 							class="trim-handle trim-start"
 							onpointerdown={(e) => startTrim(e, p.clip.id, 'start', p.clip.inPoint, p.clip.outPoint)}
 						></div>
-						<button class="clip-surface" onclick={() => editor.select(p.clip.id)} aria-label="Select {p.clip.name}">
+						<button
+							class="clip-surface"
+							onpointerdown={(e) => startClipDrag(e, p.clip.id)}
+							onclick={() => onClipClick(p.clip.id)}
+							aria-label="Select {p.clip.name}"
+						>
 							<div
 								class="clip-thumb"
 								style={p.clip.thumbnail ? `background-image: url(${p.clip.thumbnail})` : ''}
@@ -160,6 +233,11 @@
 						</div>
 					</div>
 				{/each}
+
+				<!-- Reorder drop indicator -->
+				{#if dragActive}
+					<div class="drop-indicator" style="left: {dropX}px"></div>
+				{/if}
 			</div>
 
 			<!-- Playhead spanning ruler + track -->
@@ -264,6 +342,12 @@
 	.clip.selected {
 		border: var(--snip-border-width-thick) solid var(--snip-accent);
 	}
+	.clip.dragging {
+		transform: translateX(var(--drag-dx, 0));
+		z-index: 5;
+		opacity: 0.85;
+		box-shadow: var(--snip-shadow-pop);
+	}
 
 	.clip-surface {
 		display: flex;
@@ -272,10 +356,13 @@
 		min-width: 0;
 		text-align: left;
 		background: transparent;
-		cursor: pointer;
+		cursor: grab;
+	}
+	.clip.dragging .clip-surface {
+		cursor: grabbing;
 	}
 
-	/* Thumbnail / preview area (solid placeholder until real frames are extracted) */
+	/* Thumbnail / preview area */
 	.clip-thumb {
 		flex: 1;
 		min-height: 0;
@@ -333,7 +420,6 @@
 	.trim-end {
 		right: 0;
 	}
-	/* A grip bar that appears on hover so the handle is discoverable. */
 	.trim-handle::after {
 		content: '';
 		position: absolute;
@@ -374,6 +460,19 @@
 	}
 	.clip-actions :global(.icon-btn) {
 		background: var(--snip-bg-base);
+	}
+
+	/* Reorder drop indicator */
+	.drop-indicator {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		width: var(--snip-border-width-thick);
+		background: var(--snip-accent);
+		border-radius: var(--snip-radius-full);
+		transform: translateX(-50%);
+		z-index: 4;
+		pointer-events: none;
 	}
 
 	/* Playhead */
