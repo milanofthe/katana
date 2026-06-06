@@ -63,6 +63,6 @@
 		font-weight: var(--katana-weight-semibold);
 		text-transform: uppercase;
 		letter-spacing: var(--katana-tracking-wide);
-		color: var(--katana-text-primary);
+		color: var(--katana-accent);
 	}
 </style>
