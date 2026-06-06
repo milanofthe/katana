@@ -5,7 +5,8 @@
 		PreviewPane,
 		TransportBar,
 		Timeline,
-		PropertiesPanel
+		PropertiesPanel,
+		CommandPalette
 	} from '$lib/components/editor';
 	import { handleEditorKeydown } from '$lib/editor/keyboard';
 	import { setupDragDrop } from '$lib/editor/dragdrop';
@@ -63,6 +64,8 @@
 	{#if editor.notice}
 		<div class="toast {editor.notice.kind}" role="status">{editor.notice.text}</div>
 	{/if}
+
+	<CommandPalette />
 </div>
 
 <style>
