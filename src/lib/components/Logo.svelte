@@ -11,9 +11,9 @@
 </script>
 
 {#if variant === 'full'}
-	<svg class="logo-full {klass}" viewBox="226 686 4333 1918" fill="none" aria-label="Katana">
+	<svg class="logo-full {klass}" viewBox="226 686 4230 1128" fill="none" aria-label="Katana">
 		<!-- K: lower diagonal + vertical bar (accent) -->
-		<path class="accent" fill-rule="evenodd" d="M1035.36 1797 743 1450.02 743 1238 1214 1797Z" />
+		<path class="accent" fill-rule="evenodd" d="M1035.36 1797 743 1350 743 1138 1214 1797Z" />
 		<rect class="accent" x="571" y="688" width="182" height="1110" />
 		<!-- Katana forming the K's upper diagonal -->
 		<path
