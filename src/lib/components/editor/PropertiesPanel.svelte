@@ -1,36 +1,14 @@
 <script lang="ts">
 	import { Slider, IconButton } from '$lib';
-	import { editor, clipDuration, type AspectRatio } from '$lib/editor/store.svelte';
-	import { CLIP } from '$lib/constants';
+	import { editor, clipDuration } from '$lib/editor/store.svelte';
+	import { CLIP, VIEWPORT } from '$lib/constants';
 	import { formatTimecode } from '$lib/editor/time';
 
 	const clip = $derived(editor.selectedClip);
 	const duration = $derived(clip ? clipDuration(clip) : 0);
-
-	const formats: { value: AspectRatio; label: string }[] = [
-		{ value: 'original', label: 'Orig' },
-		{ value: '16:9', label: '16:9' },
-		{ value: '9:16', label: '9:16' },
-		{ value: '1:1', label: '1:1' }
-	];
 </script>
 
 <aside class="props">
-	<section class="group">
-		<h3 class="title">Format</h3>
-		<div class="segmented" role="group" aria-label="Output format">
-			{#each formats as f (f.value)}
-				<button
-					class="seg"
-					class:active={editor.aspectRatio === f.value}
-					onclick={() => editor.setAspectRatio(f.value)}
-				>
-					{f.label}
-				</button>
-			{/each}
-		</div>
-	</section>
-
 	{#if clip}
 		<section class="group">
 			<h3 class="title">Speed</h3>
@@ -44,6 +22,30 @@
 					oninput={(v) => editor.setSpeed(v)}
 				/>
 				<span class="value snip-mono">{clip.speed.toFixed(2)}×</span>
+			</div>
+		</section>
+
+		<section class="group">
+			<div class="head">
+				<h3 class="title">Placement</h3>
+				<IconButton
+					icon="reset"
+					label="Reset placement"
+					size="sm"
+					onclick={() => editor.resetTransform(clip.id)}
+				/>
+			</div>
+			<div class="row">
+				<span class="sub">Scale</span>
+				<Slider
+					value={clip.transform.scale}
+					min={VIEWPORT.minScale}
+					max={VIEWPORT.maxScale}
+					step={0.01}
+					label="Scale"
+					oninput={(v) => editor.setTransform(clip.id, { scale: v })}
+				/>
+				<span class="value snip-mono">{Math.round(clip.transform.scale * 100)}%</span>
 			</div>
 		</section>
 
@@ -139,35 +141,6 @@
 		text-transform: uppercase;
 		letter-spacing: var(--katana-tracking-wide);
 		color: var(--katana-text-muted);
-	}
-
-	/* Format segmented control */
-	.segmented {
-		display: flex;
-		gap: var(--katana-space-1);
-	}
-	.seg {
-		flex: 1;
-		height: var(--katana-control-sm);
-		border-radius: var(--katana-radius-sm);
-		background: var(--katana-bg-elevated);
-		border: var(--katana-border-width) solid var(--katana-border);
-		color: var(--katana-text-secondary);
-		font-size: var(--katana-text-xs);
-		font-weight: var(--katana-weight-medium);
-		cursor: pointer;
-		transition:
-			background var(--katana-duration-fast) var(--katana-ease-out),
-			color var(--katana-duration-fast) var(--katana-ease-out);
-	}
-	.seg:hover {
-		background: var(--katana-bg-overlay);
-		color: var(--katana-text-primary);
-	}
-	.seg.active {
-		background: var(--katana-accent);
-		border-color: var(--katana-accent);
-		color: var(--katana-accent-contrast);
 	}
 
 	.row {

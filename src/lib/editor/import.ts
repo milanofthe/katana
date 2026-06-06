@@ -134,7 +134,8 @@ export async function importPaths(paths: string[]): Promise<void> {
 				muted: false,
 				fadeInSec: 0,
 				fadeOutSec: 0,
-				speed: 1
+				speed: 1,
+				transform: { x: 0, y: 0, scale: 1 }
 			});
 		} finally {
 			editor.importing--;

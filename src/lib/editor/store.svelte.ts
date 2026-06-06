@@ -4,6 +4,17 @@ import { TIMELINE, CLIP } from '$lib/constants';
 
 export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
 
+/** Placement of a clip within the output viewport (compositing). */
+export interface Transform {
+	/** Center offset from the viewport center, normalized to viewport size (0 = centered). */
+	x: number;
+	y: number;
+	/** Size relative to a "fit to viewport" baseline (1 = contain, >1 = zoom in). */
+	scale: number;
+}
+
+export const DEFAULT_TRANSFORM: Transform = { x: 0, y: 0, scale: 1 };
+
 export interface Clip {
 	id: string;
 	/** Asset URL the <video> can load (from convertFileSrc). */
@@ -28,6 +39,8 @@ export interface Clip {
 	fadeOutSec: number;
 	/** Playback speed multiplier (0.25..4). */
 	speed: number;
+	/** Placement within the output viewport (compositing). */
+	transform: Transform;
 }
 
 /** Untrimmed source span (seconds). */
@@ -242,6 +255,22 @@ class EditorStore {
 
 	notify(text: string, kind: 'ok' | 'error' = 'ok') {
 		this.notice = { text, kind };
+	}
+
+	/** Update a clip's viewport placement (drag / scale). */
+	setTransform(id: string, t: Partial<Transform>) {
+		const c = this.clips.find((x) => x.id === id);
+		if (!c) return;
+		c.transform = {
+			x: t.x ?? c.transform.x,
+			y: t.y ?? c.transform.y,
+			scale: t.scale !== undefined ? Math.max(0.05, t.scale) : c.transform.scale
+		};
+	}
+
+	resetTransform(id: string) {
+		const c = this.clips.find((x) => x.id === id);
+		if (c) c.transform = { ...DEFAULT_TRANSFORM };
 	}
 }
 

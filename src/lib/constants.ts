@@ -61,3 +61,13 @@ export const REORDER = {
 	/** Pointer travel (px) before a clip click turns into a reorder drag. */
 	dragThresholdPx: 4
 } as const;
+
+export const VIEWPORT = {
+	/** Snap distance (normalized to viewport size) when dragging near center/edges. */
+	snapThreshold: 0.025,
+	/** Clip scale bounds in the viewport. */
+	minScale: 0.1,
+	maxScale: 4,
+	/** Scale change per unit of wheel deltaY. */
+	scaleStep: 0.0015
+} as const;
