@@ -17,16 +17,20 @@
 		}
 	});
 
-	// Keep the video time in sync with the playhead (skip buttons / scrubbing).
-	// The threshold stops timeupdate from fighting external seeks.
+	// Keep the video time in sync with the playhead (skip buttons / scrubbing),
+	// throttled to one seek per frame so fast scrubbing stays smooth. The
+	// threshold stops timeupdate from fighting external seeks.
+	let seekRaf = 0;
 	$effect(() => {
 		const v = video;
 		const c = clip;
 		if (!v || !c) return;
 		const target = c.inPoint + editor.playhead;
-		if (Math.abs(v.currentTime - target) > PLAYER.seekThresholdSec) {
+		if (Math.abs(v.currentTime - target) <= PLAYER.seekThresholdSec) return;
+		cancelAnimationFrame(seekRaf);
+		seekRaf = requestAnimationFrame(() => {
 			v.currentTime = target;
-		}
+		});
 	});
 
 	function onLoadedMeta() {

@@ -40,3 +40,12 @@ export const CLIP = {
 	/** Minimum clip length kept when trimming or splitting (seconds). */
 	minDurationSec: 0.1
 } as const;
+
+export const THUMB = {
+	/** Captured preview frame width (px); height keeps the source aspect ratio. */
+	width: 320,
+	/** Capture position as a fraction of the clip's duration... */
+	atFraction: 0.1,
+	/** ...but no later than this many seconds in. */
+	atMaxSec: 2
+} as const;

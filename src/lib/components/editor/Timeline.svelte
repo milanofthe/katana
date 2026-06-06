@@ -321,7 +321,7 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		width: var(--snip-space-2);
+		width: var(--snip-space-3);
 		z-index: 2;
 		cursor: ew-resize;
 		background: transparent;
@@ -333,8 +333,25 @@
 	.trim-end {
 		right: 0;
 	}
+	/* A grip bar that appears on hover so the handle is discoverable. */
+	.trim-handle::after {
+		content: '';
+		position: absolute;
+		top: 25%;
+		bottom: 25%;
+		left: 50%;
+		transform: translateX(-50%);
+		width: var(--snip-border-width-thick);
+		border-radius: var(--snip-radius-full);
+		background: var(--snip-accent);
+		opacity: 0;
+		transition: opacity var(--snip-duration-fast) var(--snip-ease-out);
+	}
 	.clip:hover .trim-handle {
 		background: var(--snip-accent-muted);
+	}
+	.clip:hover .trim-handle::after {
+		opacity: 0.6;
 	}
 	.trim-handle:hover {
 		background: var(--snip-accent);
