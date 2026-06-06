@@ -1,7 +1,8 @@
 // Frontend export flow: pick an output path, hand the timeline EDL to the
-// Rust exporter, surface the result as a toast.
+// Rust exporter, stream progress, surface the result as a toast.
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { editor } from './store.svelte';
 
 export async function exportProject(): Promise<void> {
@@ -25,13 +26,18 @@ export async function exportProject(): Promise<void> {
 	}));
 
 	editor.exporting = true;
+	editor.exportProgress = 0;
 	editor.notice = null;
+	const unlisten = await listen<number>('export:progress', (e) => {
+		editor.exportProgress = e.payload;
+	});
 	try {
 		await invoke('export_video', { clips, format: editor.aspectRatio, output });
 		editor.notify('Export complete', 'ok');
 	} catch (e) {
 		editor.notify(String(e), 'error');
 	} finally {
+		unlisten();
 		editor.exporting = false;
 	}
 }

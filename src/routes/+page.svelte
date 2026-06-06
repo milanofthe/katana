@@ -51,7 +51,12 @@
 
 	{#if editor.exporting}
 		<div class="export-overlay">
-			<span class="export-message">Exporting…</span>
+			<div class="export-box">
+				<span class="export-message">Exporting… {Math.round(editor.exportProgress * 100)}%</span>
+				<div class="export-bar">
+					<div class="export-fill" style="width: {editor.exportProgress * 100}%"></div>
+				</div>
+			</div>
 		</div>
 	{/if}
 
@@ -105,10 +110,31 @@
 		background: var(--katana-scrim);
 		z-index: var(--katana-z-overlay);
 	}
+	.export-box {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--katana-space-3);
+		min-width: 16rem;
+	}
 	.export-message {
 		font-size: var(--katana-text-lg);
 		font-weight: var(--katana-weight-semibold);
 		color: var(--katana-text-primary);
+		font-variant-numeric: tabular-nums;
+	}
+	.export-bar {
+		width: 100%;
+		height: var(--katana-space-1);
+		border-radius: var(--katana-radius-full);
+		background: var(--katana-bg-overlay);
+		overflow: hidden;
+	}
+	.export-fill {
+		height: 100%;
+		background: var(--katana-accent);
+		border-radius: var(--katana-radius-full);
+		transition: width var(--katana-duration-fast) var(--katana-ease-out);
 	}
 
 	/* Result toast */

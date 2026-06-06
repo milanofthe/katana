@@ -56,6 +56,8 @@ class EditorStore {
 	importing = $state(0);
 	/** True while an export is running. */
 	exporting = $state(false);
+	/** Export progress, 0..1. */
+	exportProgress = $state(0);
 	/** Transient toast notice (export result, etc.). */
 	notice = $state<{ text: string; kind: 'ok' | 'error' } | null>(null);
 	/** Project output format. */
