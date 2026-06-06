@@ -31,12 +31,21 @@
 		if (v && c) v.playbackRate = c.speed;
 	});
 
-	// Audio: volume (with fade in/out) and mute.
+	// Mute + base volume: only re-runs when those change, not per playback tick.
 	$effect(() => {
 		const v = video;
 		const c = clip;
 		if (!v || !c) return;
 		v.muted = c.muted;
+		if (c.fadeInSec === 0 && c.fadeOutSec === 0) v.volume = c.volume;
+	});
+
+	// Fade ramp: per-tick, but does nothing when no fade is configured.
+	$effect(() => {
+		const v = video;
+		const c = clip;
+		if (!v || !c) return;
+		if (c.fadeInSec === 0 && c.fadeOutSec === 0) return;
 		const dur = clipDuration(c);
 		const t = editor.playhead;
 		let fade = 1;
@@ -67,10 +76,9 @@
 	function onTimeUpdate() {
 		if (!video || !clip) return;
 		editor.playhead = (video.currentTime - clip.inPoint) / clip.speed;
-		// Stop at the trim out-point.
+		// At the trim out-point: continue into the next clip, or stop at the end.
 		if (video.currentTime >= clip.outPoint) {
-			video.pause();
-			editor.playing = false;
+			if (!editor.advance()) editor.playing = false;
 		}
 	}
 

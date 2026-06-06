@@ -108,7 +108,22 @@ class EditorStore {
 
 	togglePlay() {
 		if (!this.selectedClip) return;
+		// Starting from the very end of the timeline? Rewind first.
+		if (!this.playing && this.globalPlayhead >= this.totalDuration - 0.05) {
+			this.seekGlobal(0);
+		}
 		this.playing = !this.playing;
+	}
+
+	/** Advance to the next clip for continuous playback. False at the last clip. */
+	advance(): boolean {
+		const idx = this.clips.findIndex((c) => c.id === this.selectedId);
+		if (idx >= 0 && idx < this.clips.length - 1) {
+			this.selectedId = this.clips[idx + 1].id;
+			this.playhead = 0;
+			return true;
+		}
+		return false;
 	}
 
 	toggleSnap() {

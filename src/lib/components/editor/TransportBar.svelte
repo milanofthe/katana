@@ -17,7 +17,7 @@
 	<!-- Transport group: skip back, play/pause, skip forward -->
 	<div class="group transport">
 		<Tooltip text="To start" placement="top">
-			<IconButton icon="skipBack" label="To start" size="md" disabled={!hasClip} onclick={() => editor.seek(0)} />
+			<IconButton icon="skipBack" label="To start" size="md" disabled={!hasClip} onclick={() => editor.seekGlobal(0)} />
 		</Tooltip>
 		<Tooltip text={editor.playing ? 'Pause' : 'Play'} placement="top">
 			<IconButton
@@ -30,7 +30,7 @@
 			/>
 		</Tooltip>
 		<Tooltip text="To end" placement="top">
-			<IconButton icon="skipForward" label="To end" size="md" disabled={!hasClip} onclick={() => editor.seek(editor.activeDuration)} />
+			<IconButton icon="skipForward" label="To end" size="md" disabled={!hasClip} onclick={() => editor.seekGlobal(editor.totalDuration)} />
 		</Tooltip>
 	</div>
 

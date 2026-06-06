@@ -31,6 +31,7 @@
 	{disabled}
 	aria-label={label}
 	aria-pressed={active}
+	onmousedown={(e) => e.preventDefault()}
 	{onclick}
 >
 	<Icon name={icon} />

@@ -105,12 +105,19 @@
 		return idx;
 	}
 
-	// Scrub the playhead by clicking/dragging the ruler.
+	// Scrub the playhead by clicking/dragging the ruler. Throttled to one
+	// seekGlobal per frame (it's O(n) and can swap the previewed clip).
 	function startScrub(e: PointerEvent) {
 		e.preventDefault();
 		editor.seekGlobal(pointerToSeconds(e.clientX));
-		const onMove = (ev: PointerEvent) => editor.seekGlobal(pointerToSeconds(ev.clientX));
+		let raf = 0;
+		const onMove = (ev: PointerEvent) => {
+			const x = ev.clientX;
+			cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(() => editor.seekGlobal(pointerToSeconds(x)));
+		};
 		const onUp = () => {
+			cancelAnimationFrame(raf);
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
 		};
@@ -167,13 +174,20 @@
 		e.preventDefault();
 		e.stopPropagation();
 		const startX = e.clientX;
+		// Throttle to one update per frame: each setIn/OutPoint rebuilds filmstrips.
+		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
-			// Pixel delta -> timeline seconds -> source seconds (scaled by speed).
-			const delta = ((ev.clientX - startX) / editor.pxPerSec) * speed;
-			if (edge === 'start') editor.setInPoint(clipId, startIn + delta);
-			else editor.setOutPoint(clipId, startOut + delta);
+			const x = ev.clientX;
+			cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(() => {
+				// Pixel delta -> timeline seconds -> source seconds (scaled by speed).
+				const delta = ((x - startX) / editor.pxPerSec) * speed;
+				if (edge === 'start') editor.setInPoint(clipId, startIn + delta);
+				else editor.setOutPoint(clipId, startOut + delta);
+			});
 		};
 		const onUp = () => {
+			cancelAnimationFrame(raf);
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
 		};
