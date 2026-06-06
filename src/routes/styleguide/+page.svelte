@@ -50,7 +50,7 @@
 			{#each typeScale as t (t.label)}
 				<p class={t.cls}>{t.label}</p>
 			{/each}
-			<p class="timecode snip-mono">00:12:04 / 00:48:21</p>
+			<p class="timecode katana-mono">00:12:04 / 00:48:21</p>
 		</div>
 	</section>
 
@@ -131,117 +131,117 @@
 	.page {
 		max-width: 72rem;
 		margin: 0 auto;
-		padding: var(--snip-space-12) var(--snip-space-8);
+		padding: var(--katana-space-12) var(--katana-space-8);
 		display: flex;
 		flex-direction: column;
-		gap: var(--snip-space-12);
+		gap: var(--katana-space-12);
 	}
 
 	/* Brand */
 	.brand {
 		display: flex;
 		flex-direction: column;
-		gap: var(--snip-space-2);
+		gap: var(--katana-space-2);
 	}
 	.brand :global(.brand-logo) {
-		font-size: var(--snip-text-xl);
+		font-size: var(--katana-text-xl);
 	}
 	.brand p {
-		color: var(--snip-text-muted);
-		font-size: var(--snip-text-sm);
+		color: var(--katana-text-muted);
+		font-size: var(--katana-text-sm);
 	}
 
 	section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--snip-space-4);
+		gap: var(--katana-space-4);
 	}
 	h2 {
-		font-size: var(--snip-text-xs);
-		font-weight: var(--snip-weight-semibold);
+		font-size: var(--katana-text-xs);
+		font-weight: var(--katana-weight-semibold);
 		text-transform: uppercase;
-		letter-spacing: var(--snip-tracking-wide);
-		color: var(--snip-text-muted);
+		letter-spacing: var(--katana-tracking-wide);
+		color: var(--katana-text-muted);
 	}
 
 	/* Palette */
 	.swatches {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
-		gap: var(--snip-space-3);
+		gap: var(--katana-space-3);
 	}
 	.swatch {
 		display: flex;
 		flex-direction: column;
-		gap: var(--snip-space-2);
+		gap: var(--katana-space-2);
 	}
 	.chip {
-		height: var(--snip-space-12);
-		border-radius: var(--snip-radius-md);
-		border: var(--snip-border-width) solid var(--snip-border);
+		height: var(--katana-space-12);
+		border-radius: var(--katana-radius-md);
+		border: var(--katana-border-width) solid var(--katana-border);
 	}
 	.swatch code {
-		font-family: var(--snip-font-mono);
-		font-size: var(--snip-text-xs);
-		color: var(--snip-text-secondary);
+		font-family: var(--katana-font-mono);
+		font-size: var(--katana-text-xs);
+		color: var(--katana-text-secondary);
 	}
 	.sw-accent {
-		background: var(--snip-accent);
+		background: var(--katana-accent);
 	}
 	.sw-accent-hover {
-		background: var(--snip-accent-hover);
+		background: var(--katana-accent-hover);
 	}
 	.sw-surface {
-		background: var(--snip-bg-surface);
+		background: var(--katana-bg-surface);
 	}
 	.sw-elevated {
-		background: var(--snip-bg-elevated);
+		background: var(--katana-bg-elevated);
 	}
 	.sw-overlay {
-		background: var(--snip-bg-overlay);
+		background: var(--katana-bg-overlay);
 	}
 	.sw-success {
-		background: var(--snip-success);
+		background: var(--katana-success);
 	}
 	.sw-danger {
-		background: var(--snip-danger);
+		background: var(--katana-danger);
 	}
 
 	/* Type */
 	.type {
 		display: flex;
 		flex-direction: column;
-		gap: var(--snip-space-2);
+		gap: var(--katana-space-2);
 	}
 	.t-xl {
-		font-size: var(--snip-text-xl);
-		font-weight: var(--snip-weight-semibold);
-		letter-spacing: var(--snip-tracking-tight);
+		font-size: var(--katana-text-xl);
+		font-weight: var(--katana-weight-semibold);
+		letter-spacing: var(--katana-tracking-tight);
 	}
 	.t-lg {
-		font-size: var(--snip-text-lg);
-		font-weight: var(--snip-weight-semibold);
+		font-size: var(--katana-text-lg);
+		font-weight: var(--katana-weight-semibold);
 	}
 	.t-md {
-		font-size: var(--snip-text-md);
-		font-weight: var(--snip-weight-medium);
+		font-size: var(--katana-text-md);
+		font-weight: var(--katana-weight-medium);
 	}
 	.t-base {
-		font-size: var(--snip-text-base);
-		color: var(--snip-text-secondary);
+		font-size: var(--katana-text-base);
+		color: var(--katana-text-secondary);
 	}
 	.t-sm {
-		font-size: var(--snip-text-sm);
-		color: var(--snip-text-secondary);
+		font-size: var(--katana-text-sm);
+		color: var(--katana-text-secondary);
 	}
 	.t-xs {
-		font-size: var(--snip-text-xs);
-		color: var(--snip-text-muted);
+		font-size: var(--katana-text-xs);
+		color: var(--katana-text-muted);
 	}
 	.timecode {
-		margin-top: var(--snip-space-2);
-		font-size: var(--snip-text-lg);
-		color: var(--snip-accent);
+		margin-top: var(--katana-space-2);
+		font-size: var(--katana-text-lg);
+		color: var(--katana-accent);
 	}
 
 	/* Layout helpers */
@@ -249,27 +249,27 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--snip-space-3);
+		gap: var(--katana-space-3);
 	}
 	.tooltip-demo {
-		padding: var(--snip-space-8) 0;
+		padding: var(--katana-space-8) 0;
 	}
 
 	/* Toolbar */
 	.toolbar {
 		display: flex;
 		align-items: center;
-		gap: var(--snip-space-1);
-		padding: var(--snip-space-2);
-		background: var(--snip-bg-surface);
-		border: var(--snip-border-width) solid var(--snip-border);
-		border-radius: var(--snip-radius-lg);
+		gap: var(--katana-space-1);
+		padding: var(--katana-space-2);
+		background: var(--katana-bg-surface);
+		border: var(--katana-border-width) solid var(--katana-border);
+		border-radius: var(--katana-radius-lg);
 	}
 	.divider {
-		width: var(--snip-border-width);
+		width: var(--katana-border-width);
 		align-self: stretch;
-		margin: var(--snip-space-1) var(--snip-space-2);
-		background: var(--snip-border);
+		margin: var(--katana-space-1) var(--katana-space-2);
+		background: var(--katana-border);
 	}
 	.spacer {
 		flex: 1;

@@ -1,8 +1,8 @@
 /*
- * Snip design tokens — single source of truth for all CSS.
+ * Katana design tokens — single source of truth for all CSS.
  *
  * Every color, size, space, radius, font and motion value lives here as a
- * custom property. Components must reference var(--snip-*) only; never hardcode
+ * custom property. Components must reference var(--katana-*) only; never hardcode
  * a literal. JS/Canvas consumers (e.g. the timeline renderer) read the same
  * values from theme.ts — keep the two in sync.
  *
@@ -11,111 +11,111 @@
 
 :root {
 	/* ── Surfaces ──────────────────────────────────────────────── */
-	--snip-bg-base: #0e0e10; /* app shell, deepest layer */
-	--snip-bg-surface: #18181b; /* panels, toolbars, tracks */
-	--snip-bg-elevated: #212126; /* cards, clips, popovers */
-	--snip-bg-overlay: #2a2a30; /* hover fills, inputs */
+	--katana-bg-base: #0e0e10; /* app shell, deepest layer */
+	--katana-bg-surface: #18181b; /* panels, toolbars, tracks */
+	--katana-bg-elevated: #212126; /* cards, clips, popovers */
+	--katana-bg-overlay: #2a2a30; /* hover fills, inputs */
 
 	/* ── Borders ───────────────────────────────────────────────── */
-	--snip-border: #2e2e34;
-	--snip-border-strong: #3a3a42;
-	--snip-border-width: 1px;
-	--snip-border-width-thick: 2px;
+	--katana-border: #2e2e34;
+	--katana-border-strong: #3a3a42;
+	--katana-border-width: 1px;
+	--katana-border-width-thick: 2px;
 
 	/* ── Text ──────────────────────────────────────────────────── */
-	--snip-text-primary: #ececee;
-	--snip-text-secondary: #a8a8b0;
-	--snip-text-muted: #6e6e78;
+	--katana-text-primary: #ececee;
+	--katana-text-secondary: #a8a8b0;
+	--katana-text-muted: #6e6e78;
 
 	/* ── Accent · Vermillion (the blade) ───────────────────────── */
-	--snip-accent: #ff5c4d;
-	--snip-accent-hover: #ff7468;
-	--snip-accent-muted: rgba(255, 92, 77, 0.14); /* selection, subtle fill */
-	--snip-accent-contrast: #2a0e0a; /* text/icons on accent surfaces */
+	--katana-accent: #ff5c4d;
+	--katana-accent-hover: #ff7468;
+	--katana-accent-muted: rgba(255, 92, 77, 0.14); /* selection, subtle fill */
+	--katana-accent-contrast: #2a0e0a; /* text/icons on accent surfaces */
 
 	/* ── Semantic ──────────────────────────────────────────────── */
-	--snip-success: #3dd68c;
-	--snip-danger: #e5484d;
+	--katana-success: #3dd68c;
+	--katana-danger: #e5484d;
 
 	/* ── Typography ────────────────────────────────────────────── */
-	--snip-font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, sans-serif;
-	--snip-font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
+	--katana-font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, sans-serif;
+	--katana-font-mono: 'JetBrains Mono Variable', ui-monospace, 'SF Mono', monospace;
 
-	--snip-text-xs: 0.75rem; /* 12px — caption */
-	--snip-text-sm: 0.8125rem; /* 13px — label */
-	--snip-text-base: 0.875rem; /* 14px — body / UI default */
-	--snip-text-md: 1rem; /* 16px — emphasis */
-	--snip-text-lg: 1.25rem; /* 20px — heading */
-	--snip-text-xl: 1.625rem; /* 26px — display */
+	--katana-text-xs: 0.75rem; /* 12px — caption */
+	--katana-text-sm: 0.8125rem; /* 13px — label */
+	--katana-text-base: 0.875rem; /* 14px — body / UI default */
+	--katana-text-md: 1rem; /* 16px — emphasis */
+	--katana-text-lg: 1.25rem; /* 20px — heading */
+	--katana-text-xl: 1.625rem; /* 26px — display */
 
-	--snip-weight-regular: 400;
-	--snip-weight-medium: 500;
-	--snip-weight-semibold: 600;
+	--katana-weight-regular: 400;
+	--katana-weight-medium: 500;
+	--katana-weight-semibold: 600;
 
-	--snip-leading-none: 1;
-	--snip-leading-tight: 1.2;
-	--snip-leading-normal: 1.5;
+	--katana-leading-none: 1;
+	--katana-leading-tight: 1.2;
+	--katana-leading-normal: 1.5;
 
-	--snip-tracking-tight: -0.01em;
-	--snip-tracking-normal: 0;
-	--snip-tracking-wide: 0.02em;
+	--katana-tracking-tight: -0.01em;
+	--katana-tracking-normal: 0;
+	--katana-tracking-wide: 0.02em;
 
 	/* ── Spacing · 4px base ────────────────────────────────────── */
-	--snip-space-px: 1px;
-	--snip-space-1: 0.25rem; /* 4 */
-	--snip-space-2: 0.5rem; /* 8 */
-	--snip-space-3: 0.75rem; /* 12 */
-	--snip-space-4: 1rem; /* 16 */
-	--snip-space-5: 1.25rem; /* 20 */
-	--snip-space-6: 1.5rem; /* 24 */
-	--snip-space-8: 2rem; /* 32 */
-	--snip-space-10: 2.5rem; /* 40 */
-	--snip-space-12: 3rem; /* 48 */
-	--snip-space-16: 4rem; /* 64 */
+	--katana-space-px: 1px;
+	--katana-space-1: 0.25rem; /* 4 */
+	--katana-space-2: 0.5rem; /* 8 */
+	--katana-space-3: 0.75rem; /* 12 */
+	--katana-space-4: 1rem; /* 16 */
+	--katana-space-5: 1.25rem; /* 20 */
+	--katana-space-6: 1.5rem; /* 24 */
+	--katana-space-8: 2rem; /* 32 */
+	--katana-space-10: 2.5rem; /* 40 */
+	--katana-space-12: 3rem; /* 48 */
+	--katana-space-16: 4rem; /* 64 */
 
 	/* ── Radii ─────────────────────────────────────────────────── */
-	--snip-radius-sm: 4px;
-	--snip-radius-md: 6px;
-	--snip-radius-lg: 10px;
-	--snip-radius-full: 9999px;
+	--katana-radius-sm: 4px;
+	--katana-radius-md: 6px;
+	--katana-radius-lg: 10px;
+	--katana-radius-full: 9999px;
 
 	/* ── Control heights ───────────────────────────────────────── */
-	--snip-control-sm: 28px;
-	--snip-control-md: 32px;
-	--snip-control-lg: 40px;
+	--katana-control-sm: 28px;
+	--katana-control-md: 32px;
+	--katana-control-lg: 40px;
 
 	/* ── Icon sizes ────────────────────────────────────────────── */
-	--snip-icon-sm: 16px;
-	--snip-icon-md: 18px;
-	--snip-icon-lg: 20px;
+	--katana-icon-sm: 16px;
+	--katana-icon-md: 18px;
+	--katana-icon-lg: 20px;
 
 	/* ── Timeline dimensions ───────────────────────────────────── */
-	--snip-timeline-track-height: 128px;
-	--snip-timeline-ruler-height: 24px;
+	--katana-timeline-track-height: 128px;
+	--katana-timeline-ruler-height: 24px;
 	/* Uniform clip spacing; must match TIMELINE.gutterPx in constants.ts. */
-	--snip-timeline-gutter: 8px;
+	--katana-timeline-gutter: 8px;
 
 	/* ── Elevation ─────────────────────────────────────────────── */
-	--snip-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-	--snip-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-	--snip-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45);
+	--katana-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+	--katana-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+	--katana-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45);
 
 	/* ── Motion ────────────────────────────────────────────────── */
-	--snip-duration-fast: 140ms;
-	--snip-duration-base: 220ms;
-	--snip-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-	--snip-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+	--katana-duration-fast: 140ms;
+	--katana-duration-base: 220ms;
+	--katana-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--katana-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
 	/* ── Z-index scale ─────────────────────────────────────────── */
-	--snip-z-timeline: 10;
-	--snip-z-dropdown: 100;
-	--snip-z-overlay: 300;
-	--snip-z-modal: 400;
-	--snip-z-tooltip: 600;
+	--katana-z-timeline: 10;
+	--katana-z-dropdown: 100;
+	--katana-z-overlay: 300;
+	--katana-z-modal: 400;
+	--katana-z-tooltip: 600;
 
 	/* ── Tooltip ───────────────────────────────────────────────── */
-	--snip-tooltip-bg: #000000;
-	--snip-tooltip-text: #ececee;
-	--snip-tooltip-delay: 400ms;
-	--snip-tooltip-offset: var(--snip-space-2);
+	--katana-tooltip-bg: #000000;
+	--katana-tooltip-text: #ececee;
+	--katana-tooltip-delay: 400ms;
+	--katana-tooltip-offset: var(--katana-space-2);
 }

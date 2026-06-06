@@ -42,11 +42,11 @@
 		align-items: center;
 		justify-content: center;
 		aspect-ratio: 1;
-		border-radius: var(--snip-radius-md);
-		color: var(--snip-text-secondary);
+		border-radius: var(--katana-radius-md);
+		color: var(--katana-text-secondary);
 		transition:
-			background var(--snip-duration-fast) var(--snip-ease-out),
-			color var(--snip-duration-fast) var(--snip-ease-out);
+			background var(--katana-duration-fast) var(--katana-ease-out),
+			color var(--katana-duration-fast) var(--katana-ease-out);
 	}
 
 	.icon-btn:disabled {
@@ -56,16 +56,16 @@
 
 	/* Sizes — font-size drives the 1em icon. */
 	.sm {
-		height: var(--snip-control-sm);
-		font-size: var(--snip-icon-sm);
+		height: var(--katana-control-sm);
+		font-size: var(--katana-icon-sm);
 	}
 	.md {
-		height: var(--snip-control-md);
-		font-size: var(--snip-icon-md);
+		height: var(--katana-control-md);
+		font-size: var(--katana-icon-md);
 	}
 	.lg {
-		height: var(--snip-control-lg);
-		font-size: var(--snip-icon-lg);
+		height: var(--katana-control-lg);
+		font-size: var(--katana-icon-lg);
 	}
 
 	/* Variants */
@@ -73,30 +73,30 @@
 		background: transparent;
 	}
 	.ghost:hover:not(:disabled) {
-		background: var(--snip-bg-overlay);
-		color: var(--snip-text-primary);
+		background: var(--katana-bg-overlay);
+		color: var(--katana-text-primary);
 	}
 
 	.solid {
-		background: var(--snip-bg-elevated);
-		border: var(--snip-border-width) solid var(--snip-border);
-		color: var(--snip-text-primary);
+		background: var(--katana-bg-elevated);
+		border: var(--katana-border-width) solid var(--katana-border);
+		color: var(--katana-text-primary);
 	}
 	.solid:hover:not(:disabled) {
-		background: var(--snip-bg-overlay);
+		background: var(--katana-bg-overlay);
 	}
 
 	.accent {
-		background: var(--snip-accent);
-		color: var(--snip-accent-contrast);
+		background: var(--katana-accent);
+		color: var(--katana-accent-contrast);
 	}
 	.accent:hover:not(:disabled) {
-		background: var(--snip-accent-hover);
+		background: var(--katana-accent-hover);
 	}
 
 	/* Active / pressed (toggles) */
 	.active:not(.accent) {
-		background: var(--snip-accent-muted);
-		color: var(--snip-accent);
+		background: var(--katana-accent-muted);
+		color: var(--katana-accent);
 	}
 </style>

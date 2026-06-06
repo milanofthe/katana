@@ -24,10 +24,10 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		height: calc(var(--snip-control-lg) + var(--snip-space-3) * 2);
-		padding: var(--snip-space-3) var(--snip-space-6);
-		background: var(--snip-bg-surface);
-		border-bottom: var(--snip-border-width) solid var(--snip-border);
+		height: calc(var(--katana-control-lg) + var(--katana-space-3) * 2);
+		padding: var(--katana-space-3) var(--katana-space-6);
+		background: var(--katana-bg-surface);
+		border-bottom: var(--katana-border-width) solid var(--katana-border);
 		flex-shrink: 0;
 	}
 
@@ -39,6 +39,6 @@
 	.actions {
 		display: flex;
 		align-items: center;
-		gap: var(--snip-space-2);
+		gap: var(--katana-space-2);
 	}
 </style>

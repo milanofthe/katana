@@ -29,15 +29,15 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		gap: var(--snip-space-2);
-		border-radius: var(--snip-radius-md);
-		font-family: var(--snip-font-sans);
-		font-weight: var(--snip-weight-medium);
+		gap: var(--katana-space-2);
+		border-radius: var(--katana-radius-md);
+		font-family: var(--katana-font-sans);
+		font-weight: var(--katana-weight-medium);
 		white-space: nowrap;
 		transition:
-			background var(--snip-duration-fast) var(--snip-ease-out),
-			border-color var(--snip-duration-fast) var(--snip-ease-out),
-			color var(--snip-duration-fast) var(--snip-ease-out);
+			background var(--katana-duration-fast) var(--katana-ease-out),
+			border-color var(--katana-duration-fast) var(--katana-ease-out),
+			color var(--katana-duration-fast) var(--katana-ease-out);
 	}
 
 	.btn:disabled {
@@ -47,52 +47,52 @@
 
 	/* Sizes */
 	.sm {
-		height: var(--snip-control-sm);
-		padding: 0 var(--snip-space-3);
-		font-size: var(--snip-text-xs);
+		height: var(--katana-control-sm);
+		padding: 0 var(--katana-space-3);
+		font-size: var(--katana-text-xs);
 	}
 	.md {
-		height: var(--snip-control-md);
-		padding: 0 var(--snip-space-4);
-		font-size: var(--snip-text-sm);
+		height: var(--katana-control-md);
+		padding: 0 var(--katana-space-4);
+		font-size: var(--katana-text-sm);
 	}
 	.lg {
-		height: var(--snip-control-lg);
-		padding: 0 var(--snip-space-5);
-		font-size: var(--snip-text-base);
+		height: var(--katana-control-lg);
+		padding: 0 var(--katana-space-5);
+		font-size: var(--katana-text-base);
 	}
 
 	/* Variants */
 	.primary {
-		background: var(--snip-accent);
-		color: var(--snip-accent-contrast);
+		background: var(--katana-accent);
+		color: var(--katana-accent-contrast);
 	}
 	.primary:hover:not(:disabled) {
-		background: var(--snip-accent-hover);
+		background: var(--katana-accent-hover);
 	}
 
 	.secondary {
-		background: var(--snip-bg-elevated);
-		color: var(--snip-text-primary);
-		border: var(--snip-border-width) solid var(--snip-border);
+		background: var(--katana-bg-elevated);
+		color: var(--katana-text-primary);
+		border: var(--katana-border-width) solid var(--katana-border);
 	}
 	.secondary:hover:not(:disabled) {
-		background: var(--snip-bg-overlay);
-		border-color: var(--snip-border-strong);
+		background: var(--katana-bg-overlay);
+		border-color: var(--katana-border-strong);
 	}
 
 	.ghost {
 		background: transparent;
-		color: var(--snip-text-secondary);
+		color: var(--katana-text-secondary);
 	}
 	.ghost:hover:not(:disabled) {
-		background: var(--snip-bg-overlay);
-		color: var(--snip-text-primary);
+		background: var(--katana-bg-overlay);
+		color: var(--katana-text-primary);
 	}
 
 	.danger {
-		background: var(--snip-danger);
-		color: var(--snip-text-primary);
+		background: var(--katana-danger);
+		color: var(--katana-text-primary);
 	}
 	.danger:hover:not(:disabled) {
 		filter: brightness(1.1);

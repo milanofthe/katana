@@ -79,8 +79,8 @@
 		display: flex;
 		flex: 1;
 		min-height: 0;
-		background: var(--snip-bg-base);
-		padding: var(--snip-space-4);
+		background: var(--katana-bg-base);
+		padding: var(--katana-space-4);
 	}
 
 	.stage {
@@ -88,8 +88,8 @@
 		flex: 1;
 		align-items: center;
 		justify-content: center;
-		background: var(--snip-bg-base);
-		border-radius: var(--snip-radius-md);
+		background: var(--katana-bg-base);
+		border-radius: var(--katana-radius-md);
 		overflow: hidden;
 	}
 
@@ -100,7 +100,7 @@
 		height: auto;
 		object-fit: contain;
 		display: block;
-		border-radius: var(--snip-radius-sm);
+		border-radius: var(--katana-radius-sm);
 	}
 
 	.empty-state {
@@ -108,15 +108,15 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: var(--snip-space-4);
-		color: var(--snip-text-muted);
+		gap: var(--katana-space-4);
+		color: var(--katana-text-muted);
 	}
 
 	.empty-text {
-		font-family: var(--snip-font-sans);
-		font-size: var(--snip-text-sm);
-		font-weight: var(--snip-weight-regular);
-		color: var(--snip-text-muted);
+		font-family: var(--katana-font-sans);
+		font-size: var(--katana-text-sm);
+		font-weight: var(--katana-weight-regular);
+		color: var(--katana-text-muted);
 		margin: 0;
 	}
 </style>

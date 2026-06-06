@@ -1,5 +1,5 @@
 /**
- * Snip design tokens for JS/Canvas consumers.
+ * Katana design tokens for JS/Canvas consumers.
  *
  * tokens.css is the source of truth for everything rendered via CSS. The
  * timeline draws on a <canvas>, which can't read CSS custom properties, so the

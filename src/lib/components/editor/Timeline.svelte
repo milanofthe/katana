@@ -183,7 +183,7 @@
 				{#each ticks as tick (tick.x)}
 					<div class="tick" style="left: {tick.x}px">
 						<div class="tick-mark"></div>
-						<span class="tick-label snip-mono">{tick.label}</span>
+						<span class="tick-label katana-mono">{tick.label}</span>
 					</div>
 				{/each}
 			</div>
@@ -220,7 +220,7 @@
 							</div>
 							<div class="clip-meta">
 								<span class="clip-name">{p.clip.name}</span>
-								<span class="clip-dur snip-mono">{formatTimecode(p.dur)}</span>
+								<span class="clip-dur katana-mono">{formatTimecode(p.dur)}</span>
 							</div>
 						</button>
 						<!-- svelte-ignore a11y_no_static_element_interactions -- pointer trim handle -->
@@ -258,8 +258,8 @@
 	.timeline {
 		display: flex;
 		flex-direction: column;
-		background: var(--snip-bg-base);
-		border-top: var(--snip-border-width) solid var(--snip-border);
+		background: var(--katana-bg-base);
+		border-top: var(--katana-border-width) solid var(--katana-border);
 		flex-shrink: 0;
 		user-select: none;
 	}
@@ -269,14 +269,14 @@
 		overflow-x: auto;
 		overflow-y: hidden;
 		scrollbar-width: thin;
-		scrollbar-color: var(--snip-border-strong) transparent;
+		scrollbar-color: var(--katana-border-strong) transparent;
 	}
 	.tl-scroll::-webkit-scrollbar {
-		height: var(--snip-space-2);
+		height: var(--katana-space-2);
 	}
 	.tl-scroll::-webkit-scrollbar-thumb {
-		background: var(--snip-border-strong);
-		border-radius: var(--snip-radius-full);
+		background: var(--katana-border-strong);
+		border-radius: var(--katana-radius-full);
 	}
 
 	.tl-content {
@@ -287,8 +287,8 @@
 	/* Ruler (also the scrub bar) */
 	.ruler {
 		position: relative;
-		height: var(--snip-timeline-ruler-height);
-		border-bottom: var(--snip-border-width) solid var(--snip-border);
+		height: var(--katana-timeline-ruler-height);
+		border-bottom: var(--katana-border-width) solid var(--katana-border);
 		cursor: pointer;
 	}
 	.tick {
@@ -297,56 +297,56 @@
 		bottom: 0;
 		display: flex;
 		align-items: flex-end;
-		gap: var(--snip-space-1);
-		padding-bottom: var(--snip-space-1);
+		gap: var(--katana-space-1);
+		padding-bottom: var(--katana-space-1);
 		pointer-events: none;
 	}
 	.tick-mark {
 		position: absolute;
 		top: 0;
 		left: 0;
-		width: var(--snip-border-width);
-		height: var(--snip-space-2);
-		background: var(--snip-border-strong);
+		width: var(--katana-border-width);
+		height: var(--katana-space-2);
+		background: var(--katana-border-strong);
 	}
 	.tick-label {
-		font-size: var(--snip-text-xs);
+		font-size: var(--katana-text-xs);
 		font-variant-numeric: tabular-nums;
-		color: var(--snip-text-muted);
+		color: var(--katana-text-muted);
 		white-space: nowrap;
-		padding-left: var(--snip-space-1);
-		line-height: var(--snip-leading-none);
+		padding-left: var(--katana-space-1);
+		line-height: var(--katana-leading-none);
 	}
 
 	/* Track lane */
 	.track {
 		position: relative;
-		height: var(--snip-timeline-track-height);
+		height: var(--katana-timeline-track-height);
 	}
 
 	/* Clip snippet */
 	.clip {
 		position: absolute;
-		top: var(--snip-timeline-gutter);
-		bottom: var(--snip-timeline-gutter);
+		top: var(--katana-timeline-gutter);
+		bottom: var(--katana-timeline-gutter);
 		display: flex;
-		border-radius: var(--snip-radius-md);
+		border-radius: var(--katana-radius-md);
 		overflow: hidden;
-		border: var(--snip-border-width) solid var(--snip-border);
-		background: var(--snip-bg-elevated);
-		transition: border-color var(--snip-duration-fast) var(--snip-ease-out);
+		border: var(--katana-border-width) solid var(--katana-border);
+		background: var(--katana-bg-elevated);
+		transition: border-color var(--katana-duration-fast) var(--katana-ease-out);
 	}
 	.clip:hover {
-		border-color: var(--snip-border-strong);
+		border-color: var(--katana-border-strong);
 	}
 	.clip.selected {
-		border: var(--snip-border-width-thick) solid var(--snip-accent);
+		border: var(--katana-border-width-thick) solid var(--katana-accent);
 	}
 	.clip.dragging {
 		transform: translateX(var(--drag-dx, 0));
 		z-index: 5;
 		opacity: 0.85;
-		box-shadow: var(--snip-shadow-pop);
+		box-shadow: var(--katana-shadow-pop);
 	}
 
 	.clip-surface {
@@ -369,11 +369,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: var(--snip-bg-base);
+		background-color: var(--katana-bg-base);
 		background-size: cover;
 		background-position: center;
-		font-size: var(--snip-text-xl);
-		color: var(--snip-text-muted);
+		font-size: var(--katana-text-xl);
+		color: var(--katana-text-muted);
 	}
 	.clip-thumb :global(.thumb-glyph) {
 		opacity: 0.5;
@@ -383,24 +383,24 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: var(--snip-space-2);
-		padding: var(--snip-space-1) var(--snip-space-2);
-		background: var(--snip-bg-elevated);
-		border-top: var(--snip-border-width) solid var(--snip-border);
+		gap: var(--katana-space-2);
+		padding: var(--katana-space-1) var(--katana-space-2);
+		background: var(--katana-bg-elevated);
+		border-top: var(--katana-border-width) solid var(--katana-border);
 	}
 	.clip-name {
-		font-size: var(--snip-text-xs);
-		font-weight: var(--snip-weight-medium);
-		color: var(--snip-text-secondary);
+		font-size: var(--katana-text-xs);
+		font-weight: var(--katana-weight-medium);
+		color: var(--katana-text-secondary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 	.clip-dur {
 		flex-shrink: 0;
-		font-size: var(--snip-text-xs);
+		font-size: var(--katana-text-xs);
 		font-variant-numeric: tabular-nums;
-		color: var(--snip-text-muted);
+		color: var(--katana-text-muted);
 	}
 
 	/* Trim handles at each clip edge */
@@ -408,11 +408,11 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		width: var(--snip-space-3);
+		width: var(--katana-space-3);
 		z-index: 2;
 		cursor: ew-resize;
 		background: transparent;
-		transition: background var(--snip-duration-fast) var(--snip-ease-out);
+		transition: background var(--katana-duration-fast) var(--katana-ease-out);
 	}
 	.trim-start {
 		left: 0;
@@ -427,39 +427,39 @@
 		bottom: 25%;
 		left: 50%;
 		transform: translateX(-50%);
-		width: var(--snip-border-width-thick);
-		border-radius: var(--snip-radius-full);
-		background: var(--snip-accent);
+		width: var(--katana-border-width-thick);
+		border-radius: var(--katana-radius-full);
+		background: var(--katana-accent);
 		opacity: 0;
-		transition: opacity var(--snip-duration-fast) var(--snip-ease-out);
+		transition: opacity var(--katana-duration-fast) var(--katana-ease-out);
 	}
 	.clip:hover .trim-handle {
-		background: var(--snip-accent-muted);
+		background: var(--katana-accent-muted);
 	}
 	.clip:hover .trim-handle::after {
 		opacity: 0.6;
 	}
 	.trim-handle:hover {
-		background: var(--snip-accent);
+		background: var(--katana-accent);
 	}
 
 	/* Per-clip action buttons, revealed on hover */
 	.clip-actions {
 		position: absolute;
-		top: var(--snip-space-1);
-		right: var(--snip-space-1);
+		top: var(--katana-space-1);
+		right: var(--katana-space-1);
 		display: flex;
-		gap: var(--snip-space-1);
+		gap: var(--katana-space-1);
 		opacity: 0;
 		z-index: 3;
-		transition: opacity var(--snip-duration-fast) var(--snip-ease-out);
+		transition: opacity var(--katana-duration-fast) var(--katana-ease-out);
 	}
 	.clip:hover .clip-actions,
 	.clip:focus-within .clip-actions {
 		opacity: 1;
 	}
 	.clip-actions :global(.icon-btn) {
-		background: var(--snip-bg-base);
+		background: var(--katana-bg-base);
 	}
 
 	/* Reorder drop indicator */
@@ -467,9 +467,9 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		width: var(--snip-border-width-thick);
-		background: var(--snip-accent);
-		border-radius: var(--snip-radius-full);
+		width: var(--katana-border-width-thick);
+		background: var(--katana-accent);
+		border-radius: var(--katana-radius-full);
 		transform: translateX(-50%);
 		z-index: 4;
 		pointer-events: none;
@@ -480,11 +480,11 @@
 		position: absolute;
 		top: 0;
 		bottom: 0;
-		width: var(--snip-border-width-thick);
-		background: var(--snip-accent);
+		width: var(--katana-border-width-thick);
+		background: var(--katana-accent);
 		transform: translateX(-50%);
 		pointer-events: none;
-		z-index: var(--snip-z-timeline);
+		z-index: var(--katana-z-timeline);
 	}
 	.playhead-head {
 		position: absolute;
@@ -493,9 +493,9 @@
 		transform: translateX(-50%);
 		width: 0;
 		height: 0;
-		border-left: var(--snip-space-1) solid transparent;
-		border-right: var(--snip-space-1) solid transparent;
-		border-top: var(--snip-space-2) solid var(--snip-accent);
+		border-left: var(--katana-space-1) solid transparent;
+		border-right: var(--katana-space-1) solid transparent;
+		border-top: var(--katana-space-2) solid var(--katana-accent);
 	}
 
 	/* Empty state */
@@ -505,8 +505,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: var(--snip-text-sm);
-		color: var(--snip-text-muted);
+		font-size: var(--katana-text-sm);
+		color: var(--katana-text-muted);
 		pointer-events: none;
 	}
 </style>

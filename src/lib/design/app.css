@@ -1,5 +1,5 @@
 /*
- * Snip global stylesheet — the single entry imported once in +layout.svelte.
+ * Katana global stylesheet — the single entry imported once in +layout.svelte.
  * Order matters: fonts → tokens → reset → base.
  */
 @import './fonts.css';
@@ -10,26 +10,26 @@ html {
 	color-scheme: dark;
 	height: 100%;
 	/* Paint the whole surface opaque so the desktop never shows through. */
-	background: var(--snip-bg-base);
+	background: var(--katana-bg-base);
 }
 
 body {
 	height: 100%;
 	width: 100%;
 	overflow: hidden;
-	background: var(--snip-bg-base);
-	color: var(--snip-text-primary);
-	font-family: var(--snip-font-sans);
-	font-size: var(--snip-text-base);
-	font-weight: var(--snip-weight-regular);
-	line-height: var(--snip-leading-normal);
-	letter-spacing: var(--snip-tracking-normal);
+	background: var(--katana-bg-base);
+	color: var(--katana-text-primary);
+	font-family: var(--katana-font-sans);
+	font-size: var(--katana-text-base);
+	font-weight: var(--katana-weight-regular);
+	line-height: var(--katana-leading-normal);
+	letter-spacing: var(--katana-tracking-normal);
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
 }
 
 /* Tabular, monospaced numerals for timecodes and numeric readouts. */
-.snip-mono {
-	font-family: var(--snip-font-mono);
+.katana-mono {
+	font-family: var(--katana-font-mono);
 	font-variant-numeric: tabular-nums;
 }

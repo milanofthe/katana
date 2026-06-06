@@ -14,7 +14,7 @@ export const TIMELINE = {
 	/**
 	 * Uniform spacing (px) around and between clip snippets — identical in every
 	 * direction (top, bottom, left, right, and between clips). Must match the CSS
-	 * token --snip-timeline-gutter.
+	 * token --katana-timeline-gutter.
 	 */
 	gutterPx: 8,
 	/** Minimum rendered clip width (px) so short clips stay legible. */

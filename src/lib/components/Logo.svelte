@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Snip brand mark — a stylized katana. This is the one place the brand SVG
+	// Katana brand mark — a stylized katana. This is the one place the brand SVG
 	// lives (multi-color, so it doesn't belong in the monochrome icon set).
 	// Geometry is the supplied artwork; fills are mapped onto theme tokens so
 	// the mark tracks the palette. Size scales with font-size (1em-based).
@@ -35,7 +35,7 @@
 		/>
 	</svg>
 	{#if variant === 'full'}
-		<span class="wordmark">Snip</span>
+		<span class="wordmark">Katana</span>
 	{/if}
 </span>
 
@@ -43,9 +43,9 @@
 	.logo {
 		display: inline-flex;
 		align-items: center;
-		gap: var(--snip-space-3);
-		font-size: var(--snip-text-xl);
-		line-height: var(--snip-leading-none);
+		gap: var(--katana-space-3);
+		font-size: var(--katana-text-xl);
+		line-height: var(--katana-leading-none);
 	}
 	.mark {
 		height: 1.25em;
@@ -53,16 +53,16 @@
 		flex: none;
 	}
 	.blade {
-		fill: var(--snip-accent);
+		fill: var(--katana-accent);
 	}
 	.steel {
-		fill: var(--snip-text-primary);
+		fill: var(--katana-text-primary);
 	}
 	.wordmark {
-		font-family: var(--snip-font-sans);
-		font-weight: var(--snip-weight-semibold);
+		font-family: var(--katana-font-sans);
+		font-weight: var(--katana-weight-semibold);
 		text-transform: uppercase;
-		letter-spacing: var(--snip-tracking-wide);
-		color: var(--snip-text-primary);
+		letter-spacing: var(--katana-tracking-wide);
+		color: var(--katana-text-primary);
 	}
 </style>

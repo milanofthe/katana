@@ -50,10 +50,10 @@ h6 {
 }
 
 :focus-visible {
-	outline: 2px solid var(--snip-accent);
+	outline: 2px solid var(--katana-accent);
 	outline-offset: 2px;
 }
 
 ::selection {
-	background: var(--snip-accent-muted);
+	background: var(--katana-accent-muted);
 }

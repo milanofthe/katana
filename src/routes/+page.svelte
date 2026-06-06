@@ -40,25 +40,25 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: var(--snip-bg-base);
+		background: var(--katana-bg-base);
 		overflow: hidden;
 	}
 
 	.drop-overlay {
 		position: absolute;
-		inset: var(--snip-space-4);
+		inset: var(--katana-space-4);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: var(--snip-accent-muted);
-		border: var(--snip-border-width-thick) dashed var(--snip-accent);
-		border-radius: var(--snip-radius-lg);
-		z-index: var(--snip-z-overlay);
+		background: var(--katana-accent-muted);
+		border: var(--katana-border-width-thick) dashed var(--katana-accent);
+		border-radius: var(--katana-radius-lg);
+		z-index: var(--katana-z-overlay);
 		pointer-events: none;
 	}
 	.drop-message {
-		font-size: var(--snip-text-md);
-		font-weight: var(--snip-weight-semibold);
-		color: var(--snip-accent);
+		font-size: var(--katana-text-md);
+		font-weight: var(--katana-weight-semibold);
+		color: var(--katana-accent);
 	}
 </style>

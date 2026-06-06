@@ -1,4 +1,4 @@
-// Snip UI library — public surface. Import design pieces from '$lib'.
+// Katana UI library — public surface. Import design pieces from '$lib'.
 
 // Design tokens for JS/Canvas consumers (CSS uses tokens.css via app.css).
 export { color, timeline, font, duration } from './design/theme';

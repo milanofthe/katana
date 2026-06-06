@@ -24,23 +24,23 @@
 
 	.tip {
 		position: absolute;
-		z-index: var(--snip-z-tooltip);
+		z-index: var(--katana-z-tooltip);
 		white-space: nowrap;
 		pointer-events: none;
-		background: var(--snip-tooltip-bg);
-		color: var(--snip-tooltip-text);
-		border: var(--snip-border-width) solid var(--snip-border);
-		border-radius: var(--snip-radius-md);
-		box-shadow: var(--snip-shadow-pop);
-		padding: var(--snip-space-1) var(--snip-space-2);
-		font-family: var(--snip-font-sans);
-		font-size: var(--snip-text-xs);
-		font-weight: var(--snip-weight-medium);
-		line-height: var(--snip-leading-tight);
+		background: var(--katana-tooltip-bg);
+		color: var(--katana-tooltip-text);
+		border: var(--katana-border-width) solid var(--katana-border);
+		border-radius: var(--katana-radius-md);
+		box-shadow: var(--katana-shadow-pop);
+		padding: var(--katana-space-1) var(--katana-space-2);
+		font-family: var(--katana-font-sans);
+		font-size: var(--katana-text-xs);
+		font-weight: var(--katana-weight-medium);
+		line-height: var(--katana-leading-tight);
 		opacity: 0;
 		transition:
-			opacity var(--snip-duration-fast) var(--snip-ease-out),
-			transform var(--snip-duration-fast) var(--snip-ease-out);
+			opacity var(--katana-duration-fast) var(--katana-ease-out),
+			transform var(--katana-duration-fast) var(--katana-ease-out);
 		transition-delay: 0s;
 	}
 
@@ -49,14 +49,14 @@
 	.wrap:focus-within .tip {
 		opacity: 1;
 		transform: translate(0, 0);
-		transition-delay: var(--snip-tooltip-delay);
+		transition-delay: var(--katana-tooltip-delay);
 	}
 
 	/* Placements — each sits offset from the trigger and animates in from it. */
 	.top {
-		bottom: calc(100% + var(--snip-tooltip-offset));
+		bottom: calc(100% + var(--katana-tooltip-offset));
 		left: 50%;
-		transform: translate(-50%, var(--snip-space-1));
+		transform: translate(-50%, var(--katana-space-1));
 	}
 	.wrap:hover .top,
 	.wrap:focus-within .top {
@@ -64,9 +64,9 @@
 	}
 
 	.bottom {
-		top: calc(100% + var(--snip-tooltip-offset));
+		top: calc(100% + var(--katana-tooltip-offset));
 		left: 50%;
-		transform: translate(-50%, calc(-1 * var(--snip-space-1)));
+		transform: translate(-50%, calc(-1 * var(--katana-space-1)));
 	}
 	.wrap:hover .bottom,
 	.wrap:focus-within .bottom {
@@ -74,9 +74,9 @@
 	}
 
 	.left {
-		right: calc(100% + var(--snip-tooltip-offset));
+		right: calc(100% + var(--katana-tooltip-offset));
 		top: 50%;
-		transform: translate(var(--snip-space-1), -50%);
+		transform: translate(var(--katana-space-1), -50%);
 	}
 	.wrap:hover .left,
 	.wrap:focus-within .left {
@@ -84,9 +84,9 @@
 	}
 
 	.right {
-		left: calc(100% + var(--snip-tooltip-offset));
+		left: calc(100% + var(--katana-tooltip-offset));
 		top: 50%;
-		transform: translate(calc(-1 * var(--snip-space-1)), -50%);
+		transform: translate(calc(-1 * var(--katana-space-1)), -50%);
 	}
 	.wrap:hover .right,
 	.wrap:focus-within .right {

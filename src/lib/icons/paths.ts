@@ -1,5 +1,5 @@
 /**
- * Snip icon set — central registry of all glyphs.
+ * Katana icon set — central registry of all glyphs.
  *
  * Each entry is the inner SVG markup for a 24x24, line-style icon (stroke =
  * currentColor, fill = none), rendered by Icon.svelte. Never inline an <svg>
