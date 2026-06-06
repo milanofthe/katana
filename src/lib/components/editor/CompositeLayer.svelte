@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { editor, clipDuration, type Clip } from '$lib/editor/store.svelte';
-	import { PLAYER, VIEWPORT } from '$lib/constants';
+	import { PLAYER, VIEWPORT, HISTORY } from '$lib/constants';
 
 	interface Props {
 		clip: Clip;
@@ -47,6 +47,7 @@
 		startY = e.clientY;
 		baseTx = clip.transform.x;
 		baseTy = clip.transform.y;
+		editor.beginTransaction();
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 		e.preventDefault();
 	}
@@ -65,17 +66,23 @@
 
 	function onPointerUp(e: PointerEvent) {
 		dragging = false;
+		editor.endTransaction();
 		ondragstate({ snapX: false, snapY: false, active: false });
 		(e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
 	}
 
+	// Wheel scale has no pointer-up, so commit it as one step after a short idle.
+	let wheelTimer = 0;
 	function onWheel(e: WheelEvent) {
 		if (!selected) return;
 		e.preventDefault();
+		editor.beginTransaction();
 		const next = clip.transform.scale - e.deltaY * VIEWPORT.scaleStep;
 		editor.setTransform(clip.id, {
 			scale: Math.max(VIEWPORT.minScale, Math.min(VIEWPORT.maxScale, next))
 		});
+		clearTimeout(wheelTimer);
+		wheelTimer = window.setTimeout(() => editor.endTransaction(), HISTORY.wheelCommitMs);
 	}
 
 	// ── Playback sync (this clip's slice of the master clock) ───

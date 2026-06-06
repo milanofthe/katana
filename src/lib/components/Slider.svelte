@@ -8,6 +8,8 @@
 		label: string;
 		disabled?: boolean;
 		oninput?: (value: number) => void;
+		/** Fires once when the drag/keyboard adjustment settles (pointer/key up). */
+		onchange?: () => void;
 	}
 
 	let {
@@ -17,7 +19,8 @@
 		step = 0.01,
 		label,
 		disabled = false,
-		oninput
+		oninput,
+		onchange
 	}: Props = $props();
 
 	const percent = $derived(max > min ? ((value - min) / (max - min)) * 100 : 0);
@@ -26,6 +29,10 @@
 		const v = Number((e.currentTarget as HTMLInputElement).value);
 		value = v;
 		oninput?.(v);
+	}
+
+	function onChange() {
+		onchange?.();
 	}
 </script>
 
@@ -40,6 +47,7 @@
 	aria-label={label}
 	style="--fill: {percent}%"
 	oninput={onInput}
+	onchange={onChange}
 />
 
 <style>

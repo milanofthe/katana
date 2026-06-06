@@ -62,6 +62,13 @@ export const REORDER = {
 	dragThresholdPx: 4
 } as const;
 
+export const HISTORY = {
+	/** Maximum number of undo steps kept; oldest are dropped beyond this. */
+	maxEntries: 100,
+	/** Idle delay (ms) before a wheel-scale gesture is committed as one step. */
+	wheelCommitMs: 300
+} as const;
+
 export const VIEWPORT = {
 	/** Snap distance (normalized to viewport size) when dragging near center/edges. */
 	snapThreshold: 0.025,

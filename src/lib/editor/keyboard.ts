@@ -11,6 +11,23 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 export function handleEditorKeydown(e: KeyboardEvent): void {
 	if (isTypingTarget(e.target)) return;
+
+	// Undo / redo: handled before the plain-key guard below.
+	if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+		const k = e.key.toLowerCase();
+		if (k === 'z') {
+			e.preventDefault();
+			if (e.shiftKey) editor.redo();
+			else editor.undo();
+			return;
+		}
+		if (k === 'y') {
+			e.preventDefault();
+			editor.redo();
+			return;
+		}
+	}
+
 	if (e.ctrlKey || e.metaKey || e.altKey) return;
 
 	switch (e.key) {

@@ -154,6 +154,7 @@
 		const origLeftPx = origStart * editor.pxPerSec;
 		dragId = id;
 		dragActive = false;
+		editor.beginTransaction();
 		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
 			const dx = ev.clientX - startX;
@@ -172,6 +173,7 @@
 			cancelAnimationFrame(raf);
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
+			editor.endTransaction();
 			if (dragActive) justDragged = true;
 			dragId = null;
 			dragActive = false;
@@ -200,6 +202,7 @@
 		e.preventDefault();
 		e.stopPropagation();
 		const startX = e.clientX;
+		editor.beginTransaction();
 		// Throttle to one update per frame: each setIn/OutPoint rebuilds filmstrips.
 		let raf = 0;
 		const onMove = (ev: PointerEvent) => {
@@ -216,6 +219,7 @@
 			cancelAnimationFrame(raf);
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
+			editor.endTransaction();
 		};
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);

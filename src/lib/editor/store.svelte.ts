@@ -6,7 +6,7 @@
 // (seconds) and a `track` (z-order lane, higher = rendered on top). Clips may
 // overlap in time; the master playhead drives a single clock and every visible
 // clip syncs its <video> to it.
-import { TIMELINE, CLIP } from '$lib/constants';
+import { TIMELINE, CLIP, HISTORY } from '$lib/constants';
 
 export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
 
@@ -70,6 +70,13 @@ export function clipEnd(c: Clip): number {
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
+/** Undoable slice of the editor: the document, not the transient view/clock. */
+interface Snapshot {
+	clips: Clip[];
+	aspectRatio: AspectRatio;
+	selectedId: string | null;
+}
+
 class EditorStore {
 	clips = $state<Clip[]>([]);
 	selectedId = $state<string | null>(null);
@@ -107,6 +114,78 @@ class EditorStore {
 			.sort((a, b) => a.track - b.track || a.start - b.start)
 	);
 
+	// ── Undo / redo history (snapshot-based) ────────────────────
+	private undoStack = $state<Snapshot[]>([]);
+	private redoStack = $state<Snapshot[]>([]);
+	/** Open-transaction state: coalesces a gesture into one history step. */
+	private inTransaction = false;
+	private txnDirty = false;
+	private txnStart: Snapshot | null = null;
+
+	canUndo = $derived(this.undoStack.length > 0);
+	canRedo = $derived(this.redoStack.length > 0);
+
+	private snapshot(): Snapshot {
+		return {
+			clips: $state.snapshot(this.clips) as Clip[],
+			aspectRatio: this.aspectRatio,
+			selectedId: this.selectedId
+		};
+	}
+
+	private applySnapshot(s: Snapshot) {
+		this.clips = structuredClone(s.clips);
+		this.aspectRatio = s.aspectRatio;
+		this.selectedId = this.clips.some((c) => c.id === s.selectedId) ? s.selectedId : null;
+		this.playhead = Math.min(this.playhead, this.totalDuration);
+	}
+
+	/** Capture the pre-mutation state. Called at the top of every edit. */
+	private recordBefore() {
+		if (this.inTransaction) {
+			this.txnDirty = true;
+			return;
+		}
+		this.undoStack.push(this.snapshot());
+		if (this.undoStack.length > HISTORY.maxEntries) this.undoStack.shift();
+		this.redoStack = [];
+	}
+
+	/** Begin a gesture (drag/slider): edits until endTransaction become one step. */
+	beginTransaction() {
+		if (this.inTransaction) return;
+		this.inTransaction = true;
+		this.txnDirty = false;
+		this.txnStart = this.snapshot();
+	}
+
+	endTransaction() {
+		if (!this.inTransaction) return;
+		this.inTransaction = false;
+		if (this.txnDirty && this.txnStart) {
+			this.undoStack.push(this.txnStart);
+			if (this.undoStack.length > HISTORY.maxEntries) this.undoStack.shift();
+			this.redoStack = [];
+		}
+		this.txnStart = null;
+	}
+
+	undo() {
+		const prev = this.undoStack.pop();
+		if (!prev) return;
+		this.pause();
+		this.redoStack.push(this.snapshot());
+		this.applySnapshot(prev);
+	}
+
+	redo() {
+		const next = this.redoStack.pop();
+		if (!next) return;
+		this.pause();
+		this.undoStack.push(this.snapshot());
+		this.applySnapshot(next);
+	}
+
 	/** Clips in stable timeline order (by start, then track) for prev/next nav. */
 	private ordered() {
 		return [...this.clips].sort((a, b) => a.start - b.start || a.track - b.track);
@@ -127,6 +206,7 @@ class EditorStore {
 	 * track right after the last clip there, so sequential imports line up.
 	 */
 	addClip(clip: Omit<Clip, 'start' | 'track'> & Partial<Pick<Clip, 'start' | 'track'>>) {
+		this.recordBefore();
 		const track = clip.track ?? 0;
 		const full: Clip = { ...clip, track, start: clip.start ?? this.trackEnd(track) };
 		this.clips.push(full);
@@ -136,6 +216,7 @@ class EditorStore {
 	removeClip(id: string) {
 		const idx = this.clips.findIndex((c) => c.id === id);
 		if (idx === -1) return;
+		this.recordBefore();
 		this.clips.splice(idx, 1);
 		if (this.selectedId === id) {
 			const next = this.clips[idx] ?? this.clips[idx - 1] ?? null;
@@ -229,6 +310,7 @@ class EditorStore {
 		const cut = c.inPoint + local * c.speed;
 		if (cut <= c.inPoint + CLIP.minDurationSec) return;
 		if (cut >= c.outPoint - CLIP.minDurationSec) return;
+		this.recordBefore();
 		const idx = this.clips.findIndex((x) => x.id === c.id);
 		const left: Clip = { ...c, id: crypto.randomUUID(), outPoint: cut };
 		const right: Clip = {
@@ -245,6 +327,7 @@ class EditorStore {
 	moveClipTo(id: string, start: number, track: number) {
 		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
+		this.recordBefore();
 		c.start = Math.max(0, start);
 		c.track = Math.max(0, Math.round(track));
 	}
@@ -256,6 +339,7 @@ class EditorStore {
 	setInPoint(id: string, sourceValue: number) {
 		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
+		this.recordBefore();
 		let newIn = clamp(sourceValue, 0, c.outPoint - CLIP.minDurationSec);
 		const speed = c.speed || 1;
 		let newStart = c.start + (newIn - c.inPoint) / speed;
@@ -272,37 +356,49 @@ class EditorStore {
 	setOutPoint(id: string, value: number) {
 		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
+		this.recordBefore();
 		c.outPoint = clamp(value, c.inPoint + CLIP.minDurationSec, c.sourceDuration);
 	}
 
 	// ── Clip properties (act on the selected clip) ──────────────
 	setVolume(v: number) {
 		const c = this.selectedClip;
-		if (c) c.volume = clamp(v, 0, 1);
+		if (!c) return;
+		this.recordBefore();
+		c.volume = clamp(v, 0, 1);
 	}
 
 	toggleClipMute() {
 		const c = this.selectedClip;
-		if (c) c.muted = !c.muted;
+		if (!c) return;
+		this.recordBefore();
+		c.muted = !c.muted;
 	}
 
 	setFadeIn(seconds: number) {
 		const c = this.selectedClip;
-		if (c) c.fadeInSec = clamp(seconds, 0, clipDuration(c));
+		if (!c) return;
+		this.recordBefore();
+		c.fadeInSec = clamp(seconds, 0, clipDuration(c));
 	}
 
 	setFadeOut(seconds: number) {
 		const c = this.selectedClip;
-		if (c) c.fadeOutSec = clamp(seconds, 0, clipDuration(c));
+		if (!c) return;
+		this.recordBefore();
+		c.fadeOutSec = clamp(seconds, 0, clipDuration(c));
 	}
 
 	setSpeed(v: number) {
 		const c = this.selectedClip;
 		if (!c) return;
+		this.recordBefore();
 		c.speed = clamp(v, CLIP.minSpeed, CLIP.maxSpeed);
 	}
 
 	setAspectRatio(ar: AspectRatio) {
+		if (this.aspectRatio === ar) return;
+		this.recordBefore();
 		this.aspectRatio = ar;
 	}
 
@@ -314,6 +410,7 @@ class EditorStore {
 	setTransform(id: string, t: Partial<Transform>) {
 		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
+		this.recordBefore();
 		c.transform = {
 			x: t.x ?? c.transform.x,
 			y: t.y ?? c.transform.y,
@@ -323,7 +420,9 @@ class EditorStore {
 
 	resetTransform(id: string) {
 		const c = this.clips.find((x) => x.id === id);
-		if (c) c.transform = { ...DEFAULT_TRANSFORM };
+		if (!c) return;
+		this.recordBefore();
+		c.transform = { ...DEFAULT_TRANSFORM };
 	}
 }
 

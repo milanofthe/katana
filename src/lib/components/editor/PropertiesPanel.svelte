@@ -19,7 +19,11 @@
 					max={CLIP.maxSpeed}
 					step={0.05}
 					label="Playback speed"
-					oninput={(v) => editor.setSpeed(v)}
+					oninput={(v) => {
+						editor.beginTransaction();
+						editor.setSpeed(v);
+					}}
+					onchange={() => editor.endTransaction()}
 				/>
 				<span class="value snip-mono">{clip.speed.toFixed(2)}×</span>
 			</div>
@@ -43,7 +47,11 @@
 					max={VIEWPORT.maxScale}
 					step={0.01}
 					label="Scale"
-					oninput={(v) => editor.setTransform(clip.id, { scale: v })}
+					oninput={(v) => {
+						editor.beginTransaction();
+						editor.setTransform(clip.id, { scale: v });
+					}}
+					onchange={() => editor.endTransaction()}
 				/>
 				<span class="value snip-mono">{Math.round(clip.transform.scale * 100)}%</span>
 			</div>
@@ -68,7 +76,11 @@
 					step={0.01}
 					label="Volume"
 					disabled={clip.muted}
-					oninput={(v) => editor.setVolume(v)}
+					oninput={(v) => {
+						editor.beginTransaction();
+						editor.setVolume(v);
+					}}
+					onchange={() => editor.endTransaction()}
 				/>
 				<span class="value snip-mono">{Math.round(clip.volume * 100)}%</span>
 			</div>
@@ -80,7 +92,11 @@
 					max={duration}
 					step={0.1}
 					label="Fade in"
-					oninput={(v) => editor.setFadeIn(v)}
+					oninput={(v) => {
+						editor.beginTransaction();
+						editor.setFadeIn(v);
+					}}
+					onchange={() => editor.endTransaction()}
 				/>
 				<span class="value snip-mono">{clip.fadeInSec.toFixed(1)}s</span>
 			</div>
@@ -92,7 +108,11 @@
 					max={duration}
 					step={0.1}
 					label="Fade out"
-					oninput={(v) => editor.setFadeOut(v)}
+					oninput={(v) => {
+						editor.beginTransaction();
+						editor.setFadeOut(v);
+					}}
+					onchange={() => editor.endTransaction()}
 				/>
 				<span class="value snip-mono">{clip.fadeOutSec.toFixed(1)}s</span>
 			</div>

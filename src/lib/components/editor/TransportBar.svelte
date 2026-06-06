@@ -44,6 +44,18 @@
 
 	<div class="spacer" aria-hidden="true"></div>
 
+	<!-- History group: undo, redo -->
+	<div class="group history">
+		<Tooltip text="Undo (Ctrl+Z)" placement="top">
+			<IconButton icon="undo" label="Undo" size="md" disabled={!editor.canUndo} onclick={() => editor.undo()} />
+		</Tooltip>
+		<Tooltip text="Redo (Ctrl+Shift+Z)" placement="top">
+			<IconButton icon="redo" label="Redo" size="md" disabled={!editor.canRedo} onclick={() => editor.redo()} />
+		</Tooltip>
+	</div>
+
+	<span class="divider" aria-hidden="true"></span>
+
 	<!-- Editing tools group: split, delete -->
 	<div class="group tools">
 		<Tooltip text="Split (S)" placement="top">
