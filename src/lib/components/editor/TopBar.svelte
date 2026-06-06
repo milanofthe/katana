@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Icon, Button, Logo, Tooltip } from '$lib';
+	import { Icon, Button, Logo } from '$lib';
 	import { importMedia } from '$lib/editor/import';
+	import { exportProject } from '$lib/editor/export';
 	import { editor } from '$lib/editor/store.svelte';
 </script>
 
@@ -13,11 +14,13 @@
 		<Button variant="secondary" onclick={importMedia} disabled={editor.importing > 0}>
 			<Icon name="import" />{editor.importing > 0 ? 'Importing…' : 'Import'}
 		</Button>
-		<Tooltip text="Export — coming soon" placement="bottom">
-			<Button variant="primary" disabled>
-				<Icon name="export" />Export
-			</Button>
-		</Tooltip>
+		<Button
+			variant="primary"
+			disabled={editor.clips.length === 0 || editor.importing > 0 || editor.exporting}
+			onclick={exportProject}
+		>
+			<Icon name="export" />{editor.exporting ? 'Exporting…' : 'Export'}
+		</Button>
 	</div>
 </header>
 

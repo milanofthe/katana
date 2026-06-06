@@ -23,6 +23,13 @@
 			unlisten?.();
 		};
 	});
+
+	// Auto-dismiss the toast a few seconds after it appears.
+	$effect(() => {
+		if (!editor.notice) return;
+		const t = setTimeout(() => (editor.notice = null), 4000);
+		return () => clearTimeout(t);
+	});
 </script>
 
 <svelte:window onkeydown={handleEditorKeydown} />
@@ -40,6 +47,16 @@
 		<div class="drop-overlay">
 			<span class="drop-message">Drop video to add it to the timeline</span>
 		</div>
+	{/if}
+
+	{#if editor.exporting}
+		<div class="export-overlay">
+			<span class="export-message">Exporting…</span>
+		</div>
+	{/if}
+
+	{#if editor.notice}
+		<div class="toast {editor.notice.kind}" role="status">{editor.notice.text}</div>
 	{/if}
 </div>
 
@@ -76,5 +93,46 @@
 		font-size: var(--katana-text-md);
 		font-weight: var(--katana-weight-semibold);
 		color: var(--katana-accent);
+	}
+
+	/* Export busy overlay */
+	.export-overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--katana-scrim);
+		z-index: var(--katana-z-overlay);
+	}
+	.export-message {
+		font-size: var(--katana-text-lg);
+		font-weight: var(--katana-weight-semibold);
+		color: var(--katana-text-primary);
+	}
+
+	/* Result toast */
+	.toast {
+		position: absolute;
+		bottom: var(--katana-space-6);
+		left: 50%;
+		transform: translateX(-50%);
+		max-width: 80%;
+		padding: var(--katana-space-2) var(--katana-space-4);
+		border-radius: var(--katana-radius-md);
+		background: var(--katana-bg-elevated);
+		border: var(--katana-border-width) solid var(--katana-border);
+		box-shadow: var(--katana-shadow-pop);
+		font-size: var(--katana-text-sm);
+		font-weight: var(--katana-weight-medium);
+		color: var(--katana-text-primary);
+		white-space: pre-line;
+		z-index: var(--katana-z-tooltip);
+	}
+	.toast.ok {
+		border-color: var(--katana-success);
+	}
+	.toast.error {
+		border-color: var(--katana-danger);
 	}
 </style>

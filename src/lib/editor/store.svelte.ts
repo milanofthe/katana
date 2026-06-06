@@ -54,6 +54,10 @@ class EditorStore {
 	dropActive = $state(false);
 	/** Count of in-flight imports (for the busy indicator). */
 	importing = $state(0);
+	/** True while an export is running. */
+	exporting = $state(false);
+	/** Transient toast notice (export result, etc.). */
+	notice = $state<{ text: string; kind: 'ok' | 'error' } | null>(null);
 	/** Project output format. */
 	aspectRatio = $state<AspectRatio>('original');
 
@@ -232,6 +236,10 @@ class EditorStore {
 
 	setAspectRatio(ar: AspectRatio) {
 		this.aspectRatio = ar;
+	}
+
+	notify(text: string, kind: 'ok' | 'error' = 'ok') {
+		this.notice = { text, kind };
 	}
 }
 

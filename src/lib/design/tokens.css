@@ -118,4 +118,7 @@
 	--katana-tooltip-text: #ececee;
 	--katana-tooltip-delay: 400ms;
 	--katana-tooltip-offset: var(--katana-space-2);
+
+	/* ── Overlay scrim ─────────────────────────────────────────── */
+	--katana-scrim: rgba(0, 0, 0, 0.6);
 }
