@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Icon, Button, Logo } from '$lib';
 	import { importMedia } from '$lib/editor/import';
-	import { exportProject } from '$lib/editor/export';
 	import { editor } from '$lib/editor/store.svelte';
 </script>
 
@@ -17,7 +16,7 @@
 		<Button
 			variant="primary"
 			disabled={editor.clips.length === 0 || editor.importing > 0 || editor.exporting}
-			onclick={exportProject}
+			onclick={() => (editor.exportDialogOpen = true)}
 		>
 			<Icon name="export" />{editor.exporting ? 'Exporting…' : 'Export'}
 		</Button>

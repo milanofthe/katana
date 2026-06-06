@@ -5,3 +5,4 @@ export { default as TransportBar } from './TransportBar.svelte';
 export { default as Timeline } from './Timeline.svelte';
 export { default as PropertiesPanel } from './PropertiesPanel.svelte';
 export { default as CommandPalette } from './CommandPalette.svelte';
+export { default as ExportDialog } from './ExportDialog.svelte';

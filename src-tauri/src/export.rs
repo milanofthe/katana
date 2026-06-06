@@ -30,6 +30,21 @@ pub struct ExportClip {
 	aspect_ratio: f64,
 }
 
+/// Output choices from the export dialog.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSettings {
+	/// Container + codec: "mp4-h264" | "mp4-h265" | "webm-vp9" | "mov-h264" | "gif".
+	format: String,
+	/// Target height: "source" | "2160" | "1440" | "1080" | "720" | "480".
+	resolution: String,
+	/// "high" | "medium" | "low".
+	quality: String,
+}
+
+/// Frames per second for GIF output.
+const GIF_FPS: u32 = 15;
+
 impl ExportClip {
 	fn source_span(&self) -> f64 {
 		(self.out_point - self.in_point).max(0.01)
@@ -54,6 +69,44 @@ fn format_dims(format: &str) -> Option<(u32, u32)> {
 /// Round down to the nearest even number (libx264/yuv420p needs even dims).
 fn even(v: i64) -> i64 {
 	(v - (v % 2)).max(2)
+}
+
+/// Target output height for a resolution preset (None = keep source/canvas).
+fn target_height(res: &str) -> Option<i64> {
+	match res {
+		"2160" => Some(2160),
+		"1440" => Some(1440),
+		"1080" => Some(1080),
+		"720" => Some(720),
+		"480" => Some(480),
+		_ => None,
+	}
+}
+
+/// Scale canvas dims to a resolution preset, preserving aspect ratio (even dims).
+fn apply_resolution(cw: i64, ch: i64, res: &str) -> (i64, i64) {
+	match target_height(res) {
+		Some(th) => {
+			let s = th as f64 / ch as f64;
+			(even((cw as f64 * s).round() as i64), even(th))
+		}
+		None => (even(cw), even(ch)),
+	}
+}
+
+/// CRF for a codec family at a quality level (lower = better quality).
+fn crf(codec: &str, quality: &str) -> &'static str {
+	match (codec, quality) {
+		("x265", "high") => "20",
+		("x265", "medium") => "25",
+		("x265", "low") => "30",
+		("vp9", "high") => "24",
+		("vp9", "medium") => "31",
+		("vp9", "low") => "37",
+		(_, "medium") => "23",
+		(_, "low") => "28",
+		_ => "18", // x264 high / default
+	}
 }
 
 /// atempo only accepts 0.5..2.0 per stage, so chain stages for extreme speeds.
@@ -104,9 +157,9 @@ fn probe_dims(path: &str) -> Option<(u32, u32)> {
 	}
 }
 
-/// Output canvas size: the chosen format, or the base clip's native size.
-fn canvas_dims(clips: &[ExportClip], order: &[usize], format: &str) -> (i64, i64) {
-	if let Some((w, h)) = format_dims(format) {
+/// Output canvas size: the chosen aspect format, or the base clip's native size.
+fn canvas_dims(clips: &[ExportClip], order: &[usize], aspect: &str) -> (i64, i64) {
+	if let Some((w, h)) = format_dims(aspect) {
 		return (w as i64, h as i64);
 	}
 	let base = &clips[order[0]];
@@ -136,7 +189,12 @@ fn placement(cw: i64, ch: i64, c: &ExportClip) -> (i64, i64, i64, i64) {
 }
 
 /// Build the ffmpeg argument vector. Returns (args, total_output_seconds).
-fn build_args(clips: &[ExportClip], format: &str, output: &str) -> Result<(Vec<String>, f64), String> {
+fn build_args(
+	clips: &[ExportClip],
+	aspect: &str,
+	settings: &ExportSettings,
+	output: &str,
+) -> Result<(Vec<String>, f64), String> {
 	if clips.is_empty() {
 		return Err("Nothing to export: the timeline is empty.".into());
 	}
@@ -151,7 +209,9 @@ fn build_args(clips: &[ExportClip], format: &str, output: &str) -> Result<(Vec<S
 			.then(clips[a].start.partial_cmp(&clips[b].start).unwrap_or(std::cmp::Ordering::Equal))
 	});
 
-	let (cw, ch) = canvas_dims(clips, &order, format);
+	let (cw, ch) = canvas_dims(clips, &order, aspect);
+	let (cw, ch) = apply_resolution(cw, ch, &settings.resolution);
+	let is_gif = settings.format == "gif";
 
 	let mut args: Vec<String> = vec!["-y".into()];
 	// Trimmed inputs (indices 0..N), one per clip.
@@ -199,58 +259,84 @@ fn build_args(clips: &[ExportClip], format: &str, output: &str) -> Result<(Vec<S
 		last = out_label;
 	}
 
-	// Per-clip audio: speed, volume, fade, delay to start. Muted/silent clips
-	// contribute nothing and are dropped from the mix.
-	let mut alabels: Vec<String> = Vec::new();
-	for (i, c) in clips.iter().enumerate() {
-		if c.muted || !has_audio(&c.path) {
-			continue;
+	// Audio (skipped for GIF). Per-clip: speed, volume, fade, delay to start;
+	// muted/silent clips contribute nothing and are dropped from the mix.
+	if !is_gif {
+		let mut alabels: Vec<String> = Vec::new();
+		for (i, c) in clips.iter().enumerate() {
+			if c.muted || !has_audio(&c.path) {
+				continue;
+			}
+			let speed = c.speed.max(0.01);
+			let mut chain = format!(
+				"[{i}:a]asetpts=PTS-STARTPTS,{},volume={:.4}",
+				atempo_chain(speed),
+				c.volume
+			);
+			if c.fade_in > 0.0 {
+				chain.push_str(&format!(",afade=t=in:st=0:d={:.4}", c.fade_in));
+			}
+			if c.fade_out > 0.0 {
+				let st = (c.timeline_dur() - c.fade_out).max(0.0);
+				chain.push_str(&format!(",afade=t=out:st={st:.4}:d={:.4}", c.fade_out));
+			}
+			let ms = (c.start * 1000.0).round() as i64;
+			if ms > 0 {
+				chain.push_str(&format!(",adelay={ms}:all=1"));
+			}
+			chain.push_str(&format!("[a{i}]"));
+			chains.push(chain);
+			alabels.push(format!("[a{i}]"));
 		}
-		let speed = c.speed.max(0.01);
-		let mut chain = format!(
-			"[{i}:a]asetpts=PTS-STARTPTS,{},volume={:.4}",
-			atempo_chain(speed),
-			c.volume
-		);
-		if c.fade_in > 0.0 {
-			chain.push_str(&format!(",afade=t=in:st=0:d={:.4}", c.fade_in));
+		if alabels.is_empty() {
+			chains.push(format!("anullsrc=r=44100:cl=stereo,atrim=0:{total:.6}[outa]"));
+		} else if alabels.len() == 1 {
+			chains.push(format!("{}anull[outa]", alabels[0]));
+		} else {
+			chains.push(format!(
+				"{}amix=inputs={}:normalize=0:dropout_transition=0[outa]",
+				alabels.join(""),
+				alabels.len()
+			));
 		}
-		if c.fade_out > 0.0 {
-			let st = (c.timeline_dur() - c.fade_out).max(0.0);
-			chain.push_str(&format!(",afade=t=out:st={st:.4}:d={:.4}", c.fade_out));
-		}
-		let ms = (c.start * 1000.0).round() as i64;
-		if ms > 0 {
-			chain.push_str(&format!(",adelay={ms}:all=1"));
-		}
-		chain.push_str(&format!("[a{i}]"));
-		chains.push(chain);
-		alabels.push(format!("[a{i}]"));
-	}
-	if alabels.is_empty() {
-		chains.push(format!("anullsrc=r=44100:cl=stereo,atrim=0:{total:.6}[outa]"));
-	} else if alabels.len() == 1 {
-		chains.push(format!("{}anull[outa]", alabels[0]));
 	} else {
-		chains.push(format!(
-			"{}amix=inputs={}:normalize=0:dropout_transition=0[outa]",
-			alabels.join(""),
-			alabels.len()
-		));
+		// GIF: build an optimized palette from the composited video.
+		chains.push(format!("[outv]fps={GIF_FPS},split[gv][gp]"));
+		chains.push("[gp]palettegen=stats_mode=diff[pal]".into());
+		chains.push("[gv][pal]paletteuse=dither=bayer[gifout]".into());
 	}
 
 	args.push("-filter_complex".into());
 	args.push(chains.join(";"));
-	args.extend(
-		[
+
+	// Encoder + muxer for the chosen format.
+	let q = settings.quality.as_str();
+	let tail: Vec<&str> = match settings.format.as_str() {
+		"gif" => vec!["-map", "[gifout]", "-loop", "0"],
+		"mp4-h265" => vec![
+			"-map", "[outv]", "-map", "[outa]", "-c:v", "libx265", "-preset", "veryfast", "-crf",
+			crf("x265", q), "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-c:a", "aac", "-b:a", "192k",
+			"-movflags", "+faststart",
+		],
+		"webm-vp9" => vec![
+			"-map", "[outv]", "-map", "[outa]", "-c:v", "libvpx-vp9", "-crf", crf("vp9", q), "-b:v",
+			"0", "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "128k",
+		],
+		"mov-h264" => vec![
 			"-map", "[outv]", "-map", "[outa]", "-c:v", "libx264", "-preset", "veryfast", "-crf",
-			"20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
-			// Machine-readable progress on stdout.
-			"-progress", "pipe:1", "-nostats",
-		]
-		.iter()
-		.map(|s| s.to_string()),
-	);
+			crf("x264", q), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags",
+			"+faststart",
+		],
+		_ => vec![
+			// mp4-h264 (default)
+			"-map", "[outv]", "-map", "[outa]", "-c:v", "libx264", "-preset", "veryfast", "-crf",
+			crf("x264", q), "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags",
+			"+faststart",
+		],
+	};
+	args.extend(tail.iter().map(|s| s.to_string()));
+	// Machine-readable progress on stdout.
+	args.extend(["-progress", "pipe:1", "-nostats"].iter().map(|s| s.to_string()));
 	args.push(output.to_string());
 	Ok((args, total))
 }
@@ -261,16 +347,23 @@ fn build_args(clips: &[ExportClip], format: &str, output: &str) -> Result<(Vec<S
 pub async fn export_video(
 	app: AppHandle,
 	clips: Vec<ExportClip>,
-	format: String,
+	aspect: String,
+	settings: ExportSettings,
 	output: String,
 ) -> Result<(), String> {
-	tokio::task::spawn_blocking(move || run_ffmpeg(app, &clips, &format, &output))
+	tokio::task::spawn_blocking(move || run_ffmpeg(app, &clips, &aspect, &settings, &output))
 		.await
 		.map_err(|e| e.to_string())?
 }
 
-fn run_ffmpeg(app: AppHandle, clips: &[ExportClip], format: &str, output: &str) -> Result<(), String> {
-	let (args, total) = build_args(clips, format, output)?;
+fn run_ffmpeg(
+	app: AppHandle,
+	clips: &[ExportClip],
+	aspect: &str,
+	settings: &ExportSettings,
+	output: &str,
+) -> Result<(), String> {
+	let (args, total) = build_args(clips, aspect, settings, output)?;
 
 	let mut child = Command::new("ffmpeg")
 		.args(&args)

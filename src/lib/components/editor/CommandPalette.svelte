@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { editor } from '$lib/editor/store.svelte';
 	import { importMedia } from '$lib/editor/import';
-	import { exportProject } from '$lib/editor/export';
 	import { TIMELINE } from '$lib/constants';
 
 	interface Command {
@@ -23,7 +22,7 @@
 			id: 'export',
 			title: 'Export video…',
 			disabled: editor.clips.length === 0 || editor.exporting,
-			run: () => exportProject()
+			run: () => (editor.exportDialogOpen = true)
 		},
 		{
 			id: 'play',

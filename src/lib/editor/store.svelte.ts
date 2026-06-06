@@ -89,6 +89,8 @@ class EditorStore {
 	dropActive = $state(false);
 	/** Count of in-flight imports (for the busy indicator). */
 	importing = $state(0);
+	/** True while the export dialog modal is open. */
+	exportDialogOpen = $state(false);
 	/** True while an export is running. */
 	exporting = $state(false);
 	/** Export progress, 0..1. */

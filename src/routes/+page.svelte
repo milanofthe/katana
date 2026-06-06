@@ -6,7 +6,8 @@
 		TransportBar,
 		Timeline,
 		PropertiesPanel,
-		CommandPalette
+		CommandPalette,
+		ExportDialog
 	} from '$lib/components/editor';
 	import { handleEditorKeydown } from '$lib/editor/keyboard';
 	import { setupDragDrop } from '$lib/editor/dragdrop';
@@ -66,6 +67,7 @@
 	{/if}
 
 	<CommandPalette />
+	<ExportDialog />
 </div>
 
 <style>

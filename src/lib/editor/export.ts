@@ -1,16 +1,41 @@
-// Frontend export flow: pick an output path, hand the timeline EDL to the
-// Rust exporter, stream progress, surface the result as a toast.
+// Frontend export flow: gather the timeline EDL + chosen settings, pick an
+// output path, hand it to the Rust exporter, stream progress, surface the
+// result as a toast.
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { editor } from './store.svelte';
 
-export async function exportProject(): Promise<void> {
+export interface ExportSettings {
+	/** Container + codec: "mp4-h264" | "mp4-h265" | "webm-vp9" | "mov-h264" | "gif". */
+	format: string;
+	/** Target height: "source" | "2160" | "1440" | "1080" | "720" | "480". */
+	resolution: string;
+	/** "high" | "medium" | "low". */
+	quality: string;
+}
+
+/** File extension for an output format. */
+function extensionFor(format: string): string {
+	switch (format) {
+		case 'webm-vp9':
+			return 'webm';
+		case 'mov-h264':
+			return 'mov';
+		case 'gif':
+			return 'gif';
+		default:
+			return 'mp4';
+	}
+}
+
+export async function runExport(settings: ExportSettings): Promise<void> {
 	if (editor.clips.length === 0 || editor.exporting) return;
 
+	const ext = extensionFor(settings.format);
 	const output = await save({
-		defaultPath: 'katana-export.mp4',
-		filters: [{ name: 'Video', extensions: ['mp4'] }]
+		defaultPath: `katana-export.${ext}`,
+		filters: [{ name: ext.toUpperCase(), extensions: [ext] }]
 	});
 	if (!output) return;
 
@@ -40,7 +65,7 @@ export async function exportProject(): Promise<void> {
 		editor.exportProgress = e.payload;
 	});
 	try {
-		await invoke('export_video', { clips, format: editor.aspectRatio, output });
+		await invoke('export_video', { clips, aspect: editor.aspectRatio, settings, output });
 		editor.notify('Export complete', 'ok');
 	} catch (e) {
 		editor.notify(String(e), 'error');
