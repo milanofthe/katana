@@ -15,15 +15,39 @@ function audioCtx(): AudioContext {
 const bufferCache = new Map<string, AudioBuffer>();
 const pending = new Set<string>();
 
-/** Downsample channel data to a fixed number of absolute-peak buckets (0..1). */
-function computePeaks(buffer: AudioBuffer): number[] {
+// One reusable worker for peak extraction (created lazily, client-side only).
+let worker: Worker | null = null;
+let workerBroken = false;
+function getWorker(): Worker | null {
+	if (workerBroken) return null;
+	if (!worker) {
+		try {
+			worker = new Worker(new URL('./waveform.worker.ts', import.meta.url), { type: 'module' });
+		} catch {
+			workerBroken = true;
+			return null;
+		}
+	}
+	return worker;
+}
+
+/** Copy a buffer's channels so transferring to the worker keeps the original. */
+function copyChannels(buffer: AudioBuffer): Float32Array[] {
+	const out: Float32Array[] = [];
+	for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+		out.push(buffer.getChannelData(ch).slice(0));
+	}
+	return out;
+}
+
+/** Main-thread fallback (same algorithm) if the worker is unavailable. */
+function computePeaksMain(channels: Float32Array[]): number[] {
 	const n = WAVEFORM.resolution;
 	const peaks = new Array<number>(n).fill(0);
-	const len = buffer.length;
+	const len = channels[0]?.length ?? 0;
 	const bucket = Math.max(1, Math.floor(len / n));
 	const stride = Math.max(1, Math.floor(bucket / WAVEFORM.maxSamplesPerBucket));
-	for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-		const data = buffer.getChannelData(ch);
+	for (const data of channels) {
 		for (let i = 0; i < n; i++) {
 			const start = i * bucket;
 			const end = Math.min(len, start + bucket);
@@ -38,6 +62,24 @@ function computePeaks(buffer: AudioBuffer): number[] {
 	return peaks;
 }
 
+/** Downsample to absolute-peak buckets in a worker; fall back to main thread. */
+function extractPeaks(buffer: AudioBuffer): Promise<number[]> {
+	const channels = copyChannels(buffer);
+	const w = getWorker();
+	if (!w) return Promise.resolve(computePeaksMain(channels));
+	return new Promise((resolve) => {
+		const onMessage = (e: MessageEvent<Float32Array>) => {
+			w.removeEventListener('message', onMessage);
+			resolve(Array.from(e.data));
+		};
+		w.addEventListener('message', onMessage);
+		w.postMessage(
+			{ channels, resolution: WAVEFORM.resolution, maxSamplesPerBucket: WAVEFORM.maxSamplesPerBucket },
+			channels.map((c) => c.buffer)
+		);
+	});
+}
+
 /** Decode a source (once) and publish its waveform; silent failure if no audio. */
 export async function ensureWaveform(src: string, path: string): Promise<void> {
 	if (bufferCache.has(path) || pending.has(path) || editor.waveforms[path]) return;
@@ -47,7 +89,7 @@ export async function ensureWaveform(src: string, path: string): Promise<void> {
 		const bytes = await res.arrayBuffer();
 		const buffer = await audioCtx().decodeAudioData(bytes);
 		bufferCache.set(path, buffer);
-		editor.setWaveform(path, computePeaks(buffer));
+		editor.setWaveform(path, await extractPeaks(buffer));
 	} catch {
 		// No audio stream, CORS, or decode failure: leave the clip without a waveform.
 	} finally {
