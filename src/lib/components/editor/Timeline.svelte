@@ -450,16 +450,7 @@
 		overflow-x: auto;
 		overflow-y: auto;
 		max-height: 16rem;
-		scrollbar-width: thin;
-		scrollbar-color: var(--katana-border-strong) transparent;
-	}
-	.tl-scroll::-webkit-scrollbar {
-		height: var(--katana-space-2);
-		width: var(--katana-space-2);
-	}
-	.tl-scroll::-webkit-scrollbar-thumb {
-		background: var(--katana-border-strong);
-		border-radius: var(--katana-radius-full);
+		/* Scrollbar styling is global (see app.css). */
 	}
 
 	.tl-content {

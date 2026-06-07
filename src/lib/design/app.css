@@ -33,3 +33,24 @@ body {
 	font-family: var(--katana-font-mono);
 	font-variant-numeric: tabular-nums;
 }
+
+/* Minimalist scrollbars everywhere: a plain rectangle thumb, no track. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--katana-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+	width: var(--katana-space-2);
+	height: var(--katana-space-2);
+}
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+	background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+	background: var(--katana-border-strong);
+	border-radius: 0;
+}
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--katana-text-muted);
+}
