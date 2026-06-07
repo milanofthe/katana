@@ -2,10 +2,10 @@
 // filter_complex invocation. Each clip is trimmed, speed-adjusted, scaled by
 // its transform, time-shifted to its start and overlaid (z-ordered by track)
 // onto a black canvas; audio is delayed and mixed. Progress streams back to the
-// UI. Uses ffmpeg/ffprobe from PATH.
-use std::io::{BufRead, BufReader, Read};
-use std::process::{Command, Stdio};
+// UI. FFmpeg/ffprobe ship as bundled sidecars (see scripts/fetch-ffmpeg.ps1).
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_shell::process::CommandEvent;
+use tauri_plugin_shell::ShellExt;
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -125,27 +125,32 @@ fn atempo_chain(speed: f64) -> String {
 	parts.join(",")
 }
 
-/// Does this media file carry at least one audio stream?
-fn has_audio(path: &str) -> bool {
-	Command::new("ffprobe")
-		.args([
-			"-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of",
-			"csv=p=0", path,
-		])
-		.output()
-		.map(|o| !o.stdout.is_empty())
-		.unwrap_or(false)
+/// Does this media file carry at least one audio stream? (via ffprobe sidecar)
+async fn probe_has_audio(app: &AppHandle, path: &str) -> bool {
+	let Ok(cmd) = app.shell().sidecar("ffprobe") else {
+		return false;
+	};
+	let args = [
+		"-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0",
+		path,
+	];
+	match cmd.args(args).output().await {
+		Ok(out) => out.status.success() && !String::from_utf8_lossy(&out.stdout).trim().is_empty(),
+		Err(_) => false,
+	}
 }
 
-/// Probe a clip's pixel dimensions (for the "original" canvas size).
-fn probe_dims(path: &str) -> Option<(u32, u32)> {
-	let out = Command::new("ffprobe")
-		.args([
-			"-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of",
-			"csv=s=,:p=0", path,
-		])
-		.output()
-		.ok()?;
+/// Probe a clip's pixel dimensions (via ffprobe sidecar) for "original" canvas.
+async fn probe_dims(app: &AppHandle, path: &str) -> Option<(u32, u32)> {
+	let cmd = app.shell().sidecar("ffprobe").ok()?;
+	let args = [
+		"-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of",
+		"csv=s=,:p=0", path,
+	];
+	let out = cmd.args(args).output().await.ok()?;
+	if !out.status.success() {
+		return None;
+	}
 	let text = String::from_utf8_lossy(&out.stdout);
 	let mut it = text.trim().split(',');
 	let w: u32 = it.next()?.trim().parse().ok()?;
@@ -157,13 +162,12 @@ fn probe_dims(path: &str) -> Option<(u32, u32)> {
 	}
 }
 
-/// Output canvas size: the chosen aspect format, or the base clip's native size.
-fn canvas_dims(clips: &[ExportClip], order: &[usize], aspect: &str) -> (i64, i64) {
+/// Output canvas size: the chosen aspect format, or the probed base-clip size.
+fn canvas_dims(aspect: &str, base_dims: Option<(u32, u32)>) -> (i64, i64) {
 	if let Some((w, h)) = format_dims(aspect) {
 		return (w as i64, h as i64);
 	}
-	let base = &clips[order[0]];
-	let (w, h) = probe_dims(&base.path).unwrap_or((1920, 1080));
+	let (w, h) = base_dims.unwrap_or((1920, 1080));
 	(even(w as i64), even(h as i64))
 }
 
@@ -188,28 +192,20 @@ fn placement(cw: i64, ch: i64, c: &ExportClip) -> (i64, i64, i64, i64) {
 	(dw, dh, ox, oy)
 }
 
-/// Build the ffmpeg argument vector. Returns (args, total_output_seconds).
+/// Build the ffmpeg argument vector. Pure: all probing is done by the caller and
+/// passed in via `order`, `audio_flags` and `base_dims`. Returns (args, total).
 fn build_args(
 	clips: &[ExportClip],
+	order: &[usize],
 	aspect: &str,
 	settings: &ExportSettings,
+	audio_flags: &[bool],
+	base_dims: Option<(u32, u32)>,
 	output: &str,
-) -> Result<(Vec<String>, f64), String> {
-	if clips.is_empty() {
-		return Err("Nothing to export: the timeline is empty.".into());
-	}
+) -> (Vec<String>, f64) {
 	let total: f64 = clips.iter().map(|c| c.timeline_end()).fold(0.0, f64::max);
 
-	// Composite bottom-to-top: lower track first, ties broken by start.
-	let mut order: Vec<usize> = (0..clips.len()).collect();
-	order.sort_by(|&a, &b| {
-		clips[a]
-			.track
-			.cmp(&clips[b].track)
-			.then(clips[a].start.partial_cmp(&clips[b].start).unwrap_or(std::cmp::Ordering::Equal))
-	});
-
-	let (cw, ch) = canvas_dims(clips, &order, aspect);
+	let (cw, ch) = canvas_dims(aspect, base_dims);
 	let (cw, ch) = apply_resolution(cw, ch, &settings.resolution);
 	let is_gif = settings.format == "gif";
 
@@ -264,7 +260,7 @@ fn build_args(
 	if !is_gif {
 		let mut alabels: Vec<String> = Vec::new();
 		for (i, c) in clips.iter().enumerate() {
-			if c.muted || !has_audio(&c.path) {
+			if c.muted || !audio_flags[i] {
 				continue;
 			}
 			let speed = c.speed.max(0.01);
@@ -338,11 +334,11 @@ fn build_args(
 	// Machine-readable progress on stdout.
 	args.extend(["-progress", "pipe:1", "-nostats"].iter().map(|s| s.to_string()));
 	args.push(output.to_string());
-	Ok((args, total))
+	(args, total)
 }
 
 /// Render the timeline to a single output file, emitting `export:progress`
-/// (0..1) as it runs.
+/// (0..1) as it runs. ffmpeg/ffprobe are bundled sidecars.
 #[tauri::command]
 pub async fn export_video(
 	app: AppHandle,
@@ -351,62 +347,88 @@ pub async fn export_video(
 	settings: ExportSettings,
 	output: String,
 ) -> Result<(), String> {
-	tokio::task::spawn_blocking(move || run_ffmpeg(app, &clips, &aspect, &settings, &output))
-		.await
-		.map_err(|e| e.to_string())?
-}
+	if clips.is_empty() {
+		return Err("Nothing to export: the timeline is empty.".into());
+	}
 
-fn run_ffmpeg(
-	app: AppHandle,
-	clips: &[ExportClip],
-	aspect: &str,
-	settings: &ExportSettings,
-	output: &str,
-) -> Result<(), String> {
-	let (args, total) = build_args(clips, aspect, settings, output)?;
-
-	let mut child = Command::new("ffmpeg")
-		.args(&args)
-		.stdout(Stdio::piped())
-		.stderr(Stdio::piped())
-		.spawn()
-		.map_err(|e| format!("Could not run ffmpeg (is it installed / on PATH?): {e}"))?;
-
-	// Drain stderr on a separate thread so the pipe never blocks ffmpeg.
-	let stderr = child.stderr.take();
-	let stderr_handle = std::thread::spawn(move || {
-		let mut buf = String::new();
-		if let Some(mut s) = stderr {
-			let _ = s.read_to_string(&mut buf);
-		}
-		buf
+	// Composite bottom-to-top: lower track first, ties broken by start.
+	let mut order: Vec<usize> = (0..clips.len()).collect();
+	order.sort_by(|&a, &b| {
+		clips[a]
+			.track
+			.cmp(&clips[b].track)
+			.then(clips[a].start.partial_cmp(&clips[b].start).unwrap_or(std::cmp::Ordering::Equal))
 	});
 
-	// Parse progress from stdout.
-	if let Some(stdout) = child.stdout.take() {
-		for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-			if let Some(v) = line.strip_prefix("out_time_us=") {
-				if let Ok(us) = v.trim().parse::<f64>() {
-					emit_progress(&app, us / 1_000_000.0, total);
-				}
-			} else if let Some(v) = line.strip_prefix("out_time_ms=") {
-				// Some builds report microseconds under this key; treat as us.
-				if let Ok(us) = v.trim().parse::<f64>() {
-					emit_progress(&app, us / 1_000_000.0, total);
+	// Probe up front (async) so build_args stays pure.
+	let mut audio_flags: Vec<bool> = Vec::with_capacity(clips.len());
+	for c in &clips {
+		audio_flags.push(probe_has_audio(&app, &c.path).await);
+	}
+	let base_dims = if format_dims(&aspect).is_none() {
+		probe_dims(&app, &clips[order[0]].path).await
+	} else {
+		None
+	};
+
+	let (args, total) =
+		build_args(&clips, &order, &aspect, &settings, &audio_flags, base_dims, &output);
+
+	let cmd = app
+		.shell()
+		.sidecar("ffmpeg")
+		.map_err(|e| format!("Bundled ffmpeg not found: {e}"))?;
+	let (mut rx, _child) = cmd
+		.args(args)
+		.spawn()
+		.map_err(|e| format!("Could not start ffmpeg: {e}"))?;
+
+	let mut stderr_tail: Vec<String> = Vec::new();
+	let mut exit_ok = false;
+	while let Some(event) = rx.recv().await {
+		match event {
+			CommandEvent::Stdout(bytes) => {
+				let line = String::from_utf8_lossy(&bytes);
+				parse_progress(&app, &line, total);
+			}
+			CommandEvent::Stderr(bytes) => {
+				let line = String::from_utf8_lossy(&bytes).trim_end().to_string();
+				if !line.is_empty() {
+					stderr_tail.push(line);
+					if stderr_tail.len() > 50 {
+						stderr_tail.remove(0);
+					}
 				}
 			}
+			CommandEvent::Terminated(payload) => {
+				exit_ok = payload.code == Some(0);
+			}
+			_ => {}
 		}
 	}
 
-	let status = child.wait().map_err(|e| e.to_string())?;
-	let stderr_text = stderr_handle.join().unwrap_or_default();
-	if status.success() {
+	if exit_ok {
 		let _ = app.emit("export:progress", 1.0_f64);
 		Ok(())
 	} else {
-		let tail: Vec<&str> = stderr_text.lines().rev().take(6).collect();
-		let msg: String = tail.into_iter().rev().collect::<Vec<_>>().join("\n");
+		let tail: Vec<String> = stderr_tail.iter().rev().take(6).cloned().collect();
+		let msg = tail.into_iter().rev().collect::<Vec<_>>().join("\n");
 		Err(format!("ffmpeg failed:\n{msg}"))
+	}
+}
+
+/// Parse a `-progress` stdout line and emit a 0..1 fraction.
+fn parse_progress(app: &AppHandle, line: &str, total: f64) {
+	let line = line.trim();
+	if let Some(v) = line.strip_prefix("out_time_us=") {
+		if let Ok(us) = v.trim().parse::<f64>() {
+			emit_progress(app, us / 1_000_000.0, total);
+		}
+	} else if let Some(v) = line.strip_prefix("out_time_ms=") {
+		// Some builds report microseconds under this key; treat as us.
+		if let Ok(us) = v.trim().parse::<f64>() {
+			emit_progress(app, us / 1_000_000.0, total);
+		}
 	}
 }
 
