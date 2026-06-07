@@ -145,11 +145,12 @@
 		overflow: hidden;
 	}
 
-	/* Preview + properties panel side by side */
+	/* Preview + properties panel side by side. Keeps a minimum height so the
+	   timeline can never squish the preview to nothing on a short window. */
 	.stage-row {
 		display: flex;
-		flex: 1;
-		min-height: 0;
+		flex: 1 1 0;
+		min-height: 9rem;
 	}
 
 	/* Resize handles between panels. Invisible until hovered/dragged. */
@@ -176,9 +177,11 @@
 		background: var(--katana-accent);
 	}
 
+	/* The timeline takes its set height but may shrink when the window is short,
+	   so resizing never pushes the preview off-screen. */
 	.timeline-wrap {
-		flex: none;
-		min-height: 0;
+		flex: 0 1 auto;
+		min-height: 4rem;
 		overflow: hidden;
 	}
 
