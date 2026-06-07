@@ -108,6 +108,7 @@
 
 	/* ── Z-index scale ─────────────────────────────────────────── */
 	--katana-z-timeline: 10;
+	--katana-z-timeline-ruler: 20;
 	--katana-z-dropdown: 100;
 	--katana-z-overlay: 300;
 	--katana-z-modal: 400;

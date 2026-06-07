@@ -372,6 +372,8 @@
 						<span class="tick-label katana-mono">{tick.label}</span>
 					</div>
 				{/each}
+				<!-- Scrubber head rides the sticky ruler so it stays visible while lanes scroll -->
+				<div class="playhead-head" style="transform: translateX({playheadX}px)"></div>
 			</div>
 
 			<!-- Stacked track lanes: video section, divider, audio section -->
@@ -478,10 +480,8 @@
 				{/each}
 			</div>
 
-			<!-- Playhead spanning ruler + lanes (GPU transform for a smooth 60fps sweep) -->
-			<div class="playhead" style="transform: translateX({playheadX}px)">
-				<div class="playhead-head"></div>
-			</div>
+			<!-- Playhead line spanning ruler + lanes (GPU transform for a smooth 60fps sweep) -->
+			<div class="playhead" style="transform: translateX({playheadX}px)"></div>
 			{/if}
 		</div>
 
@@ -519,11 +519,16 @@
 		min-width: 100%;
 	}
 
-	/* Ruler (also the scrub bar) */
+	/* Ruler (also the scrub bar). Sticky so the time + scrubber head stay pinned
+	   to the top while only the lanes scroll vertically (it still pans with
+	   horizontal scroll). */
 	.ruler {
-		position: relative;
+		position: sticky;
+		top: 0;
+		z-index: var(--katana-z-timeline-ruler);
 		height: var(--katana-timeline-ruler-height);
 		border-bottom: var(--katana-border-width) solid var(--katana-border);
+		background: var(--katana-bg-base);
 		cursor: pointer;
 	}
 	.tick {
@@ -777,11 +782,14 @@
 	}
 	.playhead-head {
 		position: absolute;
-		top: 0;
-		left: 50%;
-		transform: translateX(-50%);
+		bottom: 0;
+		left: 0;
+		margin-left: calc(var(--katana-space-1) * -1);
 		width: 0;
 		height: 0;
+		pointer-events: none;
+		will-change: transform;
+		z-index: var(--katana-z-timeline-ruler);
 		border-left: var(--katana-space-1) solid transparent;
 		border-right: var(--katana-space-1) solid transparent;
 		border-top: var(--katana-space-2) solid var(--katana-accent);
