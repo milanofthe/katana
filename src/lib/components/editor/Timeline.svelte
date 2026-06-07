@@ -774,6 +774,10 @@
 		right: 0;
 		clip-path: polygon(100% 0, 100% 100%, 0 0);
 	}
+	/* On a selected clip the fade ramp reads as solid accent. */
+	.clip.selected .fade-tri {
+		background: var(--katana-accent);
+	}
 
 	/* Per-clip action buttons, revealed on hover */
 	.clip-actions {
