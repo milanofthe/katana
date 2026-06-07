@@ -495,6 +495,12 @@ class EditorStore {
 		this.waveforms[path] = peaks;
 	}
 
+	/** Attach extracted thumbnails to a clip once they arrive (not undoable). */
+	setThumbnails(id: string, thumbnails: string[]) {
+		const c = this.clips.find((x) => x.id === id);
+		if (c) c.thumbnails = thumbnails;
+	}
+
 	/** Update a clip's viewport placement (drag / scale). */
 	setTransform(id: string, t: Partial<Transform>) {
 		const c = this.clips.find((x) => x.id === id);
