@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Slider, IconButton } from '$lib';
+	import { Slider, IconButton, Icon } from '$lib';
 	import { editor, clipDuration } from '$lib/editor/store.svelte';
 	import { CLIP, VIEWPORT } from '$lib/constants';
 	import { formatTimecode } from '$lib/editor/time';
@@ -9,14 +9,9 @@
 </script>
 
 {#if editor.propsCollapsed}
-	<aside class="props-rail">
-		<IconButton
-			icon="chevronLeft"
-			label="Show properties"
-			size="sm"
-			onclick={() => editor.togglePropsCollapsed()}
-		/>
-	</aside>
+	<button class="props-rail" aria-label="Show properties" onclick={() => editor.togglePropsCollapsed()}>
+		<Icon name="chevronLeft" size={14} />
+	</button>
 {:else}
 	<aside class="props" style="width: {editor.propsWidth}px">
 		<header class="panel-head">
@@ -176,14 +171,22 @@
 		overflow-y: auto;
 	}
 
-	/* Collapsed: a thin rail with just an expand button. */
+	/* Collapsed: a thin clickable rail that re-expands the panel. */
 	.props-rail {
 		flex: none;
 		display: flex;
+		align-items: flex-start;
 		justify-content: center;
-		padding-top: var(--katana-space-2);
+		width: var(--katana-control-md);
+		padding-top: var(--katana-space-3);
 		background: var(--katana-bg-surface);
 		border-left: var(--katana-border-width) solid var(--katana-border);
+		color: var(--katana-text-muted);
+		cursor: pointer;
+		transition: color var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.props-rail:hover {
+		color: var(--katana-text-primary);
 	}
 
 	.panel-head {

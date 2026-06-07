@@ -79,7 +79,11 @@ export const LAYOUT = {
 	timelineHeightMin: 120,
 	timelineHeightMax: 560,
 	/** Splitter thickness (px). */
-	splitterPx: 6
+	splitterPx: 6,
+	/** Dragging a panel smaller than (min - this) snaps it to collapsed. */
+	collapseSnapPx: 72,
+	/** Thickness of the collapsed rail/bar that re-expands on click (px). */
+	railPx: 22
 } as const;
 
 export const WAVEFORM = {

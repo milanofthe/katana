@@ -10,9 +10,11 @@
 		ExportDialog,
 		ExportProgress
 	} from '$lib/components/editor';
+	import { Icon } from '$lib';
 	import { handleEditorKeydown } from '$lib/editor/keyboard';
 	import { setupDragDrop } from '$lib/editor/dragdrop';
 	import { editor } from '$lib/editor/store.svelte';
+	import { LAYOUT } from '$lib/constants';
 
 	onMount(() => {
 		let unlisten: (() => void) | undefined;
@@ -35,28 +37,46 @@
 	});
 
 	// Drag the divider to resize the properties sidebar (drag left = wider).
+	// Dragging well below the minimum snaps it collapsed.
 	function startPropsResize(e: PointerEvent) {
 		e.preventDefault();
 		const startX = e.clientX;
 		const startW = editor.propsWidth;
-		const onMove = (ev: PointerEvent) => editor.setPropsWidth(startW + (startX - ev.clientX));
 		const onUp = () => {
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
+		};
+		const onMove = (ev: PointerEvent) => {
+			const raw = startW + (startX - ev.clientX);
+			if (raw < LAYOUT.propsWidthMin - LAYOUT.collapseSnapPx) {
+				editor.propsCollapsed = true; // snap to collapsed; gesture ends
+				onUp();
+				return;
+			}
+			editor.setPropsWidth(raw);
 		};
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
 	}
 
 	// Drag the divider to resize the timeline height (drag up = taller).
+	// Dragging well below the minimum snaps it collapsed.
 	function startTimelineResize(e: PointerEvent) {
 		e.preventDefault();
 		const startY = e.clientY;
 		const startH = editor.timelineHeight;
-		const onMove = (ev: PointerEvent) => editor.setTimelineHeight(startH + (startY - ev.clientY));
 		const onUp = () => {
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
+		};
+		const onMove = (ev: PointerEvent) => {
+			const raw = startH + (startY - ev.clientY);
+			if (raw < LAYOUT.timelineHeightMin - LAYOUT.collapseSnapPx) {
+				editor.timelineCollapsed = true; // snap to collapsed; gesture ends
+				onUp();
+				return;
+			}
+			editor.setTimelineHeight(raw);
 		};
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
@@ -92,6 +112,11 @@
 		<div class="timeline-wrap" style="height: {editor.timelineHeight}px">
 			<Timeline />
 		</div>
+	{:else}
+		<button class="rail-bar" onclick={() => (editor.timelineCollapsed = false)}>
+			<Icon name="chevronUp" size={14} />
+			<span>Timeline</span>
+		</button>
 	{/if}
 
 	{#if editor.dropActive}
@@ -155,6 +180,26 @@
 		flex: none;
 		min-height: 0;
 		overflow: hidden;
+	}
+
+	/* Collapsed timeline: a thin bar that re-expands on click. */
+	.rail-bar {
+		flex: none;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--katana-space-2);
+		height: var(--katana-control-sm);
+		background: var(--katana-bg-surface);
+		border-top: var(--katana-border-width) solid var(--katana-border);
+		color: var(--katana-text-muted);
+		font-size: var(--katana-text-xs);
+		font-weight: var(--katana-weight-medium);
+		cursor: pointer;
+		transition: color var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.rail-bar:hover {
+		color: var(--katana-text-primary);
 	}
 
 	.drop-overlay {
