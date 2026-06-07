@@ -10,6 +10,8 @@ use tauri_plugin_shell::ShellExt;
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportClip {
+	/// "video" (composited) or "audio" (mixed only).
+	kind: String,
 	path: String,
 	in_point: f64,
 	out_point: f64,
@@ -54,6 +56,9 @@ impl ExportClip {
 	}
 	fn timeline_end(&self) -> f64 {
 		self.start + self.timeline_dur()
+	}
+	fn is_video(&self) -> bool {
+		self.kind == "video"
 	}
 }
 
@@ -223,12 +228,18 @@ fn build_args(
 	// Filtergraph assembled as discrete chains, joined by ';'.
 	let mut chains: Vec<String> = Vec::new();
 
-	// Black base canvas spanning the whole timeline.
-	chains.push(format!("color=c=black:s={cw}x{ch}:r=30:d={total:.6}[bg]"));
+	// Black base canvas spanning the whole timeline. With no video clips the base
+	// itself is the output video (audio-only export = black frame + audio).
+	let has_video = !order.is_empty();
+	let base = if has_video { "bg" } else { "outv" };
+	chains.push(format!("color=c=black:s={cw}x{ch}:r=30:d={total:.6}[{base}]"));
 
 	// Per-clip video: speed, time-shift to start, scale to placement size.
 	let places: Vec<(i64, i64, i64, i64)> = clips.iter().map(|c| placement(cw, ch, c)).collect();
 	for (i, c) in clips.iter().enumerate() {
+		if !c.is_video() {
+			continue;
+		}
 		let speed = c.speed.max(0.01);
 		let (dw, dh, _, _) = places[i];
 		chains.push(format!(
@@ -237,7 +248,7 @@ fn build_args(
 		));
 	}
 
-	// Overlay chain in z-order; each clip only composites within its window.
+	// Overlay chain in z-order (video clips only); each composites in its window.
 	let mut last = "bg".to_string();
 	for (k, &i) in order.iter().enumerate() {
 		let c = &clips[i];
@@ -351,8 +362,8 @@ pub async fn export_video(
 		return Err("Nothing to export: the timeline is empty.".into());
 	}
 
-	// Composite bottom-to-top: lower track first, ties broken by start.
-	let mut order: Vec<usize> = (0..clips.len()).collect();
+	// Composite bottom-to-top: video clips only, lower track first, ties by start.
+	let mut order: Vec<usize> = (0..clips.len()).filter(|&i| clips[i].is_video()).collect();
 	order.sort_by(|&a, &b| {
 		clips[a]
 			.track
@@ -365,7 +376,7 @@ pub async fn export_video(
 	for c in &clips {
 		audio_flags.push(probe_has_audio(&app, &c.path).await);
 	}
-	let base_dims = if format_dims(&aspect).is_none() {
+	let base_dims = if format_dims(&aspect).is_none() && !order.is_empty() {
 		probe_dims(&app, &clips[order[0]].path).await
 	} else {
 		None

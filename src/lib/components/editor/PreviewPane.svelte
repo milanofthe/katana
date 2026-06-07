@@ -2,6 +2,7 @@
 	import { Icon, IconButton } from '$lib';
 	import { editor, type AspectRatio } from '$lib/editor/store.svelte';
 	import CompositeLayer from './CompositeLayer.svelte';
+	import AudioLayer from './AudioLayer.svelte';
 
 	const formats: { value: AspectRatio; label: string }[] = [
 		{ value: 'original', label: 'Orig' },
@@ -18,7 +19,11 @@
 				? 9 / 16
 				: editor.aspectRatio === '1:1'
 					? 1
-					: (editor.selectedClip?.aspectRatio ?? editor.activeClips[0]?.aspectRatio ?? 16 / 9)
+					: ((editor.selectedClip?.kind === 'video'
+							? editor.selectedClip.aspectRatio
+							: undefined) ??
+						editor.activeVideoClips[0]?.aspectRatio ??
+						16 / 9)
 	);
 
 	// Measured frame size (px), handed to each layer for its placement math.
@@ -62,7 +67,7 @@
 	<div class="stage">
 		{#if hasClips}
 			<div class="frame" style="--ar: {frameRatio}" bind:clientWidth={fw} bind:clientHeight={fh}>
-				{#each editor.activeClips as clip (clip.id)}
+				{#each editor.activeVideoClips as clip (clip.id)}
 					<CompositeLayer
 						{clip}
 						{fw}
@@ -74,7 +79,7 @@
 					/>
 				{/each}
 
-				{#if editor.activeClips.length === 0}
+				{#if editor.activeVideoClips.length === 0}
 					<span class="frame-empty">No clip at the playhead</span>
 				{/if}
 
@@ -92,9 +97,24 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- Hidden players for active audio-only clips (no visual). -->
+	<div class="audio-players" aria-hidden="true">
+		{#each editor.activeAudioClips as clip (clip.id)}
+			<AudioLayer {clip} />
+		{/each}
+	</div>
 </div>
 
 <style>
+	.audio-players {
+		position: absolute;
+		width: 0;
+		height: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+
 	.preview-pane {
 		display: flex;
 		flex: 1;

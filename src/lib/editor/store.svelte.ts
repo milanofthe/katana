@@ -21,9 +21,14 @@ export interface Transform {
 
 export const DEFAULT_TRANSFORM: Transform = { x: 0, y: 0, scale: 1 };
 
+/** Track kind. Video clips composite (z-order); audio clips only mix. */
+export type ClipKind = 'video' | 'audio';
+
 export interface Clip {
 	id: string;
-	/** Asset URL the <video> can load (from convertFileSrc). */
+	/** Whether this clip carries video (composited) or is audio-only (mixed). */
+	kind: ClipKind;
+	/** Asset URL the <video>/<audio> can load (from convertFileSrc). */
 	src: string;
 	/** Original file path on disk (for FFmpeg later). */
 	path: string;
@@ -112,17 +117,26 @@ class EditorStore {
 	totalDuration = $derived(this.clips.reduce((max, c) => Math.max(max, clipEnd(c)), 0));
 	selectedClip = $derived(this.clips.find((c) => c.id === this.selectedId) ?? null);
 
-	/** Number of occupied lanes (0 if empty). */
-	trackCount = $derived(
-		this.clips.length ? Math.max(...this.clips.map((c) => c.track)) + 1 : 0
-	);
+	/** Occupied video lanes (0 if none). Video tracks index z-order. */
+	videoTrackCount = $derived(this.trackCountFor('video'));
+	/** Occupied audio lanes (0 if none). Audio tracks are a separate section. */
+	audioTrackCount = $derived(this.trackCountFor('audio'));
 
-	/** Clips visible at the playhead, ordered base-first (track ascending). */
+	private trackCountFor(kind: ClipKind): number {
+		const tracks = this.clips.filter((c) => c.kind === kind).map((c) => c.track);
+		return tracks.length ? Math.max(...tracks) + 1 : 0;
+	}
+
+	/** All clips active at the playhead, ordered base-first (track ascending). */
 	activeClips = $derived(
 		this.clips
 			.filter((c) => this.playhead >= c.start && this.playhead < clipEnd(c))
 			.sort((a, b) => a.track - b.track || a.start - b.start)
 	);
+	/** Active video clips, base-first (for the compositing viewport). */
+	activeVideoClips = $derived(this.activeClips.filter((c) => c.kind === 'video'));
+	/** Active audio clips (for hidden audio playback). */
+	activeAudioClips = $derived(this.activeClips.filter((c) => c.kind === 'audio'));
 
 	// ── Undo / redo history (snapshot-based) ────────────────────
 	private undoStack = $state<Snapshot[]>([]);
@@ -201,9 +215,12 @@ class EditorStore {
 		return [...this.clips].sort((a, b) => a.start - b.start || a.track - b.track);
 	}
 
-	/** End of the content on a track (seconds); 0 if the track is empty. */
-	private trackEnd(track: number): number {
-		return this.clips.reduce((max, c) => (c.track === track ? Math.max(max, clipEnd(c)) : max), 0);
+	/** End of content on a kind's track (seconds); 0 if empty. */
+	private trackEnd(kind: ClipKind, track: number): number {
+		return this.clips.reduce(
+			(max, c) => (c.kind === kind && c.track === track ? Math.max(max, clipEnd(c)) : max),
+			0
+		);
 	}
 
 	/** Local playhead time within a clip (seconds from its start). */
@@ -218,9 +235,28 @@ class EditorStore {
 	addClip(clip: Omit<Clip, 'start' | 'track'> & Partial<Pick<Clip, 'start' | 'track'>>) {
 		this.recordBefore();
 		const track = clip.track ?? 0;
-		const full: Clip = { ...clip, track, start: clip.start ?? this.trackEnd(track) };
+		const full: Clip = { ...clip, track, start: clip.start ?? this.trackEnd(clip.kind, track) };
 		this.clips.push(full);
 		if (this.selectedId === null) this.select(full.id);
+	}
+
+	/** Split the selected video clip's audio into a separate audio clip and mute
+	 * the original's audio. No-op for audio clips or already-muted ones. */
+	detachAudio(id: string) {
+		const v = this.clips.find((c) => c.id === id);
+		if (!v || v.kind !== 'video' || v.muted) return;
+		this.recordBefore();
+		const audio: Clip = {
+			...v,
+			id: crypto.randomUUID(),
+			kind: 'audio',
+			track: this.trackCountFor('audio'), // new lane below existing audio
+			transform: { ...DEFAULT_TRANSFORM },
+			thumbnails: []
+		};
+		v.muted = true;
+		this.clips.push(audio);
+		this.selectedId = audio.id;
 	}
 
 	removeClip(id: string) {

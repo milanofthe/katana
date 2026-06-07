@@ -45,6 +45,13 @@
 			disabled: !editor.selectedClip,
 			run: () => editor.removeSelected()
 		},
+		{
+			id: 'detach-audio',
+			title: 'Detach audio to its own track',
+			disabled:
+				!editor.selectedClip || editor.selectedClip.kind !== 'video' || editor.selectedClip.muted,
+			run: () => editor.selectedClip && editor.detachAudio(editor.selectedClip.id)
+		},
 		{ id: 'undo', title: 'Undo', hint: 'Ctrl+Z', disabled: !editor.canUndo, run: () => editor.undo() },
 		{
 			id: 'redo',

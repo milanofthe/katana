@@ -48,44 +48,56 @@
 			</div>
 		</section>
 
-		<section class="group">
-			<div class="head">
-				<h3 class="title">Placement</h3>
-				<IconButton
-					icon="reset"
-					label="Reset placement"
-					size="sm"
-					onclick={() => editor.resetTransform(clip.id)}
-				/>
-			</div>
-			<div class="row">
-				<span class="sub">Scale</span>
-				<Slider
-					value={clip.transform.scale}
-					min={VIEWPORT.minScale}
-					max={VIEWPORT.maxScale}
-					step={0.01}
-					label="Scale"
-					oninput={(v) => {
-						editor.beginTransaction();
-						editor.setTransform(clip.id, { scale: v });
-					}}
-					onchange={() => editor.endTransaction()}
-				/>
-				<span class="value snip-mono">{Math.round(clip.transform.scale * 100)}%</span>
-			</div>
-		</section>
+		{#if clip.kind === 'video'}
+			<section class="group">
+				<div class="head">
+					<h3 class="title">Placement</h3>
+					<IconButton
+						icon="reset"
+						label="Reset placement"
+						size="sm"
+						onclick={() => editor.resetTransform(clip.id)}
+					/>
+				</div>
+				<div class="row">
+					<span class="sub">Scale</span>
+					<Slider
+						value={clip.transform.scale}
+						min={VIEWPORT.minScale}
+						max={VIEWPORT.maxScale}
+						step={0.01}
+						label="Scale"
+						oninput={(v) => {
+							editor.beginTransaction();
+							editor.setTransform(clip.id, { scale: v });
+						}}
+						onchange={() => editor.endTransaction()}
+					/>
+					<span class="value snip-mono">{Math.round(clip.transform.scale * 100)}%</span>
+				</div>
+			</section>
+		{/if}
 
 		<section class="group">
 			<div class="head">
 				<h3 class="title">Audio</h3>
-				<IconButton
-					icon={clip.muted ? 'volumeX' : 'volume'}
-					label={clip.muted ? 'Unmute' : 'Mute'}
-					size="sm"
-					active={clip.muted}
-					onclick={() => editor.toggleClipMute()}
-				/>
+				<div class="head-actions">
+					{#if clip.kind === 'video' && !clip.muted}
+						<IconButton
+							icon="scissors"
+							label="Detach audio to its own track"
+							size="sm"
+							onclick={() => editor.detachAudio(clip.id)}
+						/>
+					{/if}
+					<IconButton
+						icon={clip.muted ? 'volumeX' : 'volume'}
+						label={clip.muted ? 'Unmute' : 'Mute'}
+						size="sm"
+						active={clip.muted}
+						onclick={() => editor.toggleClipMute()}
+					/>
+				</div>
 			</div>
 			<div class="row">
 				<Slider
@@ -195,6 +207,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+	}
+	.head-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--katana-space-1);
 	}
 	.title {
 		font-size: var(--katana-text-xs);

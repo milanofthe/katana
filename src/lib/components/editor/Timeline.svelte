@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon, IconButton } from '$lib';
-	import { editor, clipDuration, clipEnd, type Clip } from '$lib/editor/store.svelte';
+	import { editor, clipDuration, clipEnd, type Clip, type ClipKind } from '$lib/editor/store.svelte';
 	import { scrubAudio } from '$lib/editor/waveform';
 	import { formatTimecode } from '$lib/editor/time';
 	import { TIMELINE, REORDER, THUMB, WAVEFORM } from '$lib/constants';
@@ -92,6 +92,8 @@
 	// once on release, which also yields a single undo entry.
 	let dragId = $state<string | null>(null);
 	let dragActive = $state(false);
+	/** Which section the active drag belongs to (video or audio). */
+	let dragKind = $state<ClipKind>('video');
 	/** Snapped horizontal offset (px) of the dragged clip during the gesture. */
 	let dragDx = $state(0);
 	/** Target track lane of the dragged clip during the gesture. */
@@ -102,11 +104,28 @@
 
 	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
-	// Lanes rendered top-to-bottom. A spare drop lane is only exposed while a
-	// clip is being dragged; otherwise just the occupied lanes are shown.
-	const laneIndices = $derived.by(() => {
-		const total = dragActive ? dragLaneCount : Math.max(1, editor.trackCount);
-		return Array.from({ length: Math.max(1, total) }, (_, i) => total - 1 - i);
+	// Lane indices per section, top-to-bottom. A spare drop lane is exposed only
+	// while a clip of that kind is being dragged. The video section always shows
+	// at least one lane; the audio section appears only once audio exists.
+	function buildLanes(kind: ClipKind): number[] {
+		const occupied = kind === 'video' ? editor.videoTrackCount : editor.audioTrackCount;
+		const dragging = dragActive && dragKind === kind;
+		let total = dragging ? dragLaneCount : occupied;
+		if (kind === 'video') total = Math.max(1, total);
+		return Array.from({ length: Math.max(0, total) }, (_, i) => total - 1 - i);
+	}
+	const videoLanes = $derived(buildLanes('video'));
+	const audioLanes = $derived(buildLanes('audio'));
+
+	type LaneRow = { kind: ClipKind; track: number } | { divider: true };
+	// Video lanes, then (if any audio) a divider and the audio lanes.
+	const lanes = $derived.by<LaneRow[]>(() => {
+		const out: LaneRow[] = videoLanes.map((track) => ({ kind: 'video' as const, track }));
+		if (audioLanes.length) {
+			out.push({ divider: true });
+			for (const track of audioLanes) out.push({ kind: 'audio' as const, track });
+		}
+		return out;
 	});
 
 	// Each clip placed by absolute start (x) and track (lane).
@@ -122,8 +141,9 @@
 		})
 	);
 
-	function clipsForLane(track: number) {
+	function clipsForLane(kind: ClipKind, track: number) {
 		return placed.filter((p) => {
+			if (p.clip.kind !== kind) return false;
 			// While dragging, the clip renders in its live target lane.
 			if (dragActive && p.clip.id === dragId) return track === dragTrack;
 			return p.clip.track === track;
@@ -220,14 +240,13 @@
 		const origStart = clip.start;
 		const origLeftPx = origStart * editor.pxPerSec;
 		const startTrack = clip.track;
-		const trackCount0 = editor.trackCount;
-		// Fixed lane height (px) captured before any spare lane is added, so the
-		// vertical mapping stays stable as tracks change during the drag.
-		const laneH = lanesEl
-			? lanesEl.getBoundingClientRect().height / Math.max(1, trackCount0)
-			: 64;
+		const kind = clip.kind;
+		const trackCount0 = kind === 'video' ? editor.videoTrackCount : editor.audioTrackCount;
+		// One lane's height (constant); used for stable vertical lane mapping.
+		const laneH = lanesEl?.querySelector('.lane')?.clientHeight || 64;
 		dragId = id;
 		dragActive = false;
+		dragKind = kind;
 		dragDx = 0;
 		dragTrack = startTrack;
 		let committedStart = origStart;
@@ -347,11 +366,18 @@
 				{/each}
 			</div>
 
-			<!-- Stacked track lanes (top lane is the spare for promotion) -->
+			<!-- Stacked track lanes: video section, divider, audio section -->
 			<div class="lanes" bind:this={lanesEl}>
-				{#each laneIndices as t (t)}
-					<div class="lane" class:spare={dragActive && t === dragLaneCount - 1}>
-						{#each clipsForLane(t) as p (p.clip.id)}
+				{#each lanes as lane (('divider' in lane ? 'div' : lane.kind + lane.track))}
+					{#if 'divider' in lane}
+						<div class="section-divider"></div>
+					{:else}
+						<div
+							class="lane"
+							class:audio-lane={lane.kind === 'audio'}
+							class:spare={dragActive && dragKind === lane.kind && lane.track === dragLaneCount - 1}
+						>
+							{#each clipsForLane(lane.kind, lane.track) as p (p.clip.id)}
 							<div
 								class="clip"
 								class:selected={p.clip.id === editor.selectedId}
@@ -375,27 +401,46 @@
 								>
 									<div
 										class="clip-thumb"
-										class:empty={p.clip.thumbnails.length === 0}
+										class:empty={p.clip.kind === 'audio'
+											? !editor.waveforms[p.clip.path]
+											: p.clip.thumbnails.length === 0}
 										style="--ar: {p.clip.aspectRatio}"
 									>
-										{#if p.clip.thumbnails.length > 0}
-											{#each filmstripFrames(p.clip, p.width) as frame, i (i)}
-												<div class="frame" style="background-image: url({frame})"></div>
-											{/each}
+										{#if p.clip.kind === 'audio'}
+											{#if editor.waveforms[p.clip.path]}
+												<canvas
+													class="wave wave-full"
+													use:waveCanvas={{
+														peaks: editor.waveforms[p.clip.path],
+														inPoint: p.clip.inPoint,
+														outPoint: p.clip.outPoint,
+														sourceDuration: p.clip.sourceDuration,
+														width: p.width
+													}}
+												></canvas>
+											{:else}
+												<Icon name="volume" class="thumb-glyph" />
+											{/if}
 										{:else}
-											<Icon name="film" class="thumb-glyph" />
-										{/if}
-										{#if editor.waveforms[p.clip.path]}
-											<canvas
-												class="wave"
-												use:waveCanvas={{
-													peaks: editor.waveforms[p.clip.path],
-													inPoint: p.clip.inPoint,
-													outPoint: p.clip.outPoint,
-													sourceDuration: p.clip.sourceDuration,
-													width: p.width
-												}}
-											></canvas>
+											{#if p.clip.thumbnails.length > 0}
+												{#each filmstripFrames(p.clip, p.width) as frame, i (i)}
+													<div class="frame" style="background-image: url({frame})"></div>
+												{/each}
+											{:else}
+												<Icon name="film" class="thumb-glyph" />
+											{/if}
+											{#if editor.waveforms[p.clip.path]}
+												<canvas
+													class="wave"
+													use:waveCanvas={{
+														peaks: editor.waveforms[p.clip.path],
+														inPoint: p.clip.inPoint,
+														outPoint: p.clip.outPoint,
+														sourceDuration: p.clip.sourceDuration,
+														width: p.width
+													}}
+												></canvas>
+											{/if}
 										{/if}
 									</div>
 									<div class="clip-meta">
@@ -415,7 +460,8 @@
 								</div>
 							</div>
 						{/each}
-					</div>
+						</div>
+					{/if}
 				{/each}
 			</div>
 
@@ -500,6 +546,15 @@
 		height: var(--katana-timeline-track-height);
 		border-bottom: var(--katana-border-width) solid var(--katana-border);
 	}
+	/* Audio lanes are tinted to read as a separate section. */
+	.audio-lane {
+		background: var(--katana-bg-surface);
+	}
+	/* Divider between the video and audio sections. */
+	.section-divider {
+		height: var(--katana-border-width-thick);
+		background: var(--katana-border-strong);
+	}
 	/* The spare lane on top reads as a lighter drop zone for new layers. */
 	.lane.spare {
 		background: repeating-linear-gradient(
@@ -571,6 +626,14 @@
 		bottom: 0;
 		width: 100%;
 		height: 45%;
+		pointer-events: none;
+	}
+	/* Audio clips: waveform fills the whole body. */
+	.wave-full {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
 		pointer-events: none;
 	}
 	.clip-thumb.empty {

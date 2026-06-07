@@ -42,6 +42,7 @@ export async function runExport(settings: ExportSettings): Promise<void> {
 	// Full compositing payload: the Rust exporter overlays each clip by its
 	// start/track (z-order) and transform (x/y/scale) onto the output canvas.
 	const clips = editor.clips.map((c) => ({
+		kind: c.kind,
 		path: c.path,
 		inPoint: c.inPoint,
 		outPoint: c.outPoint,

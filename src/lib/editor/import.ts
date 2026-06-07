@@ -8,10 +8,27 @@ import { ensureWaveform } from './waveform';
 import { THUMB } from '$lib/constants';
 
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v'];
+const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'opus'];
 
+function extOf(path: string): string {
+	return path.split('.').pop()?.toLowerCase() ?? '';
+}
 function isVideoPath(path: string): boolean {
-	const ext = path.split('.').pop()?.toLowerCase() ?? '';
-	return VIDEO_EXTENSIONS.includes(ext);
+	return VIDEO_EXTENSIONS.includes(extOf(path));
+}
+function isAudioPath(path: string): boolean {
+	return AUDIO_EXTENSIONS.includes(extOf(path));
+}
+
+/** Duration of an audio file via a metadata-only <audio> load. */
+function probeAudioDuration(src: string): Promise<number> {
+	return new Promise((resolve) => {
+		const a = document.createElement('audio');
+		a.preload = 'metadata';
+		a.onloadedmetadata = () => resolve(a.duration || 0);
+		a.onerror = () => resolve(0);
+		a.src = src;
+	});
 }
 
 /** Draw the current video frame to a canvas and return a short object-URL
@@ -111,33 +128,56 @@ async function probeMedia(src: string): Promise<Probe> {
 	return { duration, aspectRatio, thumbnails };
 }
 
-/** Append one or more video files (by absolute path) to the timeline. */
+/** Append one or more media files (video or audio) to the timeline. */
 export async function importPaths(paths: string[]): Promise<void> {
-	const videos = paths.filter(isVideoPath);
-	if (videos.length === 0) return;
-	editor.importing += videos.length;
-	for (const path of videos) {
+	const media = paths.filter((p) => isVideoPath(p) || isAudioPath(p));
+	if (media.length === 0) return;
+	editor.importing += media.length;
+	for (const path of media) {
 		try {
 			const src = convertFileSrc(path);
-			const { duration, aspectRatio, thumbnails } = await probeMedia(src);
 			const name = path.split(/[\\/]/).pop() ?? 'clip';
-			editor.addClip({
-				id: crypto.randomUUID(),
-				src,
-				path,
-				name,
-				sourceDuration: duration,
-				inPoint: 0,
-				outPoint: duration,
-				aspectRatio,
-				thumbnails,
-				volume: 1,
-				muted: false,
-				fadeInSec: 0,
-				fadeOutSec: 0,
-				speed: 1,
-				transform: { x: 0, y: 0, scale: 1 }
-			});
+			if (isAudioPath(path)) {
+				const duration = await probeAudioDuration(src);
+				editor.addClip({
+					id: crypto.randomUUID(),
+					kind: 'audio',
+					src,
+					path,
+					name,
+					sourceDuration: duration,
+					inPoint: 0,
+					outPoint: duration,
+					aspectRatio: 1,
+					thumbnails: [],
+					volume: 1,
+					muted: false,
+					fadeInSec: 0,
+					fadeOutSec: 0,
+					speed: 1,
+					transform: { x: 0, y: 0, scale: 1 }
+				});
+			} else {
+				const { duration, aspectRatio, thumbnails } = await probeMedia(src);
+				editor.addClip({
+					id: crypto.randomUUID(),
+					kind: 'video',
+					src,
+					path,
+					name,
+					sourceDuration: duration,
+					inPoint: 0,
+					outPoint: duration,
+					aspectRatio,
+					thumbnails,
+					volume: 1,
+					muted: false,
+					fadeInSec: 0,
+					fadeOutSec: 0,
+					speed: 1,
+					transform: { x: 0, y: 0, scale: 1 }
+				});
+			}
 			// Extract the waveform in the background (don't block import).
 			void ensureWaveform(src, path);
 		} finally {
@@ -146,11 +186,15 @@ export async function importPaths(paths: string[]): Promise<void> {
 	}
 }
 
-/** Open the native file picker and append the chosen video(s). */
+/** Open the native file picker and append the chosen media. */
 export async function importMedia(): Promise<void> {
 	const selected = await open({
 		multiple: true,
-		filters: [{ name: 'Video', extensions: VIDEO_EXTENSIONS }]
+		filters: [
+			{ name: 'Media', extensions: [...VIDEO_EXTENSIONS, ...AUDIO_EXTENSIONS] },
+			{ name: 'Video', extensions: VIDEO_EXTENSIONS },
+			{ name: 'Audio', extensions: AUDIO_EXTENSIONS }
+		]
 	});
 	if (!selected) return;
 	const paths = Array.isArray(selected) ? selected : [selected];
