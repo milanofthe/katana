@@ -246,6 +246,11 @@
 		position: absolute;
 		display: block;
 		object-fit: fill;
+		/* Honor the explicit scaled box: the global reset caps media at max-width
+		   100% of the frame, which would squish a clip zoomed past the canvas
+		   instead of letting it overflow (and clip to the frame's overflow). */
+		max-width: none;
+		max-height: none;
 		cursor: grab;
 		touch-action: none;
 	}
@@ -267,6 +272,8 @@
 		position: absolute;
 		display: block;
 		object-fit: fill;
+		max-width: none;
+		max-height: none;
 		pointer-events: none;
 		z-index: 1;
 	}
