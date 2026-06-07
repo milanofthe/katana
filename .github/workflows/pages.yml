@@ -26,10 +26,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install
+      # Root install provides the shared UI library's node_modules (fonts resolve
+      # relative to src/lib/design) and runs svelte-kit sync (root .svelte-kit),
+      # both needed to compile the $ui components into the landing.
+      - name: Install shared lib (root)
+        run: npm install
+      - name: Install landing
         working-directory: landing
         run: npm install
-      - name: Build
+      - name: Build landing
         working-directory: landing
         run: npm run build
       - uses: actions/configure-pages@v5
