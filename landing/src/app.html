@@ -4,17 +4,68 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		<title>Katana, a free and open source video editor for Windows</title>
 		<meta
 			name="description"
-			content="Katana, a fast and minimalist desktop video editor. Multitrack compositing, lossless export, open source."
+			content="Katana is a free, open source video editor for Windows. Fast and minimalist, with multitrack compositing, lossless export and a snappy GPU accelerated UI. A lightweight Clipchamp alternative."
 		/>
-		<meta property="og:title" content="Katana, a fast and minimalist video editor" />
+		<link rel="canonical" href="https://katana.milanrother.com/" />
+		<meta name="robots" content="index, follow" />
+		<meta name="theme-color" content="#0e0e10" />
+
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="Katana" />
+		<meta property="og:url" content="https://katana.milanrother.com/" />
+		<meta property="og:title" content="Katana, a free and open source video editor for Windows" />
 		<meta
 			property="og:description"
-			content="Multitrack compositing, lossless export, snappy GPU accelerated UI. Free and open source."
+			content="Fast, minimalist, multitrack. Compositing, lossless export and a snappy GPU accelerated UI, in a tiny native app. Free and open source, a lightweight Clipchamp alternative."
 		/>
-		<meta property="og:type" content="website" />
-		<title>Katana, a fast and minimalist video editor</title>
+		<meta property="og:image" content="https://katana.milanrother.com/og.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="Katana, a free and open source video editor for Windows" />
+		<meta property="og:locale" content="en_US" />
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content="Katana, a free and open source video editor for Windows" />
+		<meta
+			name="twitter:description"
+			content="Fast, minimalist, multitrack. Compositing, lossless export and a snappy UI, in a tiny native app. Free and open source."
+		/>
+		<meta name="twitter:image" content="https://katana.milanrother.com/og.png" />
+
+		<!-- Structured data: helps Google understand this is a free desktop app. -->
+		<script type="application/ld+json">
+			{
+				"@context": "https://schema.org",
+				"@type": "SoftwareApplication",
+				"name": "Katana",
+				"description": "A free, open source video editor for Windows. Fast and minimalist, with multitrack compositing, lossless export and a snappy GPU accelerated UI.",
+				"url": "https://katana.milanrother.com/",
+				"applicationCategory": "MultimediaApplication",
+				"applicationSubCategory": "Video Editor",
+				"operatingSystem": "Windows",
+				"downloadUrl": "https://github.com/milanofthe/katana/releases",
+				"softwareVersion": "1.0.1",
+				"license": "https://github.com/milanofthe/katana/blob/main/LICENSE",
+				"isAccessibleForFree": true,
+				"offers": {
+					"@type": "Offer",
+					"price": "0",
+					"priceCurrency": "USD"
+				},
+				"author": {
+					"@type": "Person",
+					"name": "Milan Rother",
+					"url": "https://milanrother.com"
+				}
+			}
+		</script>
+
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

@@ -36,11 +36,13 @@
 
 <div class="page">
 	<section class="hero">
-		<h1 class="sr-only">Katana, a fast and minimalist video editor</h1>
-		<div class="hero-logo"><Logo variant="full" /></div>
+		<h1 class="hero-logo">
+			<span class="sr-only">Katana, a free and open source video editor for Windows</span>
+			<Logo variant="full" />
+		</h1>
 		<p class="lead">
-			Fast, minimalist, multitrack. Compositing, lossless export and a snappy UI, in a tiny native
-			app.
+			A free, open source video editor for Windows. Fast, minimalist and multitrack: compositing,
+			lossless export and a snappy UI, in a tiny native app.
 		</p>
 		<div class="cta">
 			<Button variant="primary" size="lg" href={RELEASES} target="_blank">Download</Button>
@@ -66,8 +68,8 @@
 		<h2 class="origin-head">Why Katana?</h2>
 		<p class="origin-text">
 			Honestly? I was sick of Clipchamp. Slow, clunky, fighting me at every cut, with a UI that
-			lagged behind my own clicks. So I built the editor I actually wanted: fast, minimal, and out of
-			the way. Trim, compose, export, done.
+			lagged behind my own clicks. So I built the editor I actually wanted: a fast, minimal, open
+			source Clipchamp alternative that stays out of the way. Trim, compose, export, done.
 		</p>
 	</section>
 
@@ -114,7 +116,9 @@
 	}
 	.hero-logo {
 		font-size: var(--logo-size);
-		margin-bottom: var(--katana-space-6);
+		margin: 0 0 var(--katana-space-6);
+		font-weight: inherit;
+		line-height: var(--katana-leading-none);
 	}
 	.sr-only {
 		position: absolute;
