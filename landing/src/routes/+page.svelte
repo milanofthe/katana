@@ -30,7 +30,64 @@
 			text: 'MIT licensed and hackable. A clean SvelteKit + Rust codebase you can read and extend.'
 		}
 	];
+
+	// Honest, code-backed comparison. Katana does not win every row (it is Windows
+	// only today): credibility matters more than a clean sweep.
+	const rivals = ['Katana', 'Clipchamp', 'OpenShot', 'Shotcut'];
+	const compareRows = [
+		{ label: 'Open source', cells: [true, false, true, true] },
+		{ label: 'Free, no watermark', cells: [true, true, true, true] },
+		{ label: 'No account or sign-in', cells: [true, false, true, true] },
+		{ label: 'Tiny native app', cells: [true, false, false, false] },
+		{ label: 'Multitrack compositing', cells: [true, true, true, true] },
+		{ label: 'Lossless stream-copy export', cells: [true, false, false, false] },
+		{ label: 'Works fully offline', cells: [true, false, true, true] },
+		{ label: 'Cross platform', cells: [false, false, true, true] }
+	];
+
+	const faqs = [
+		{
+			q: 'Is Katana free?',
+			a: 'Yes. Katana is completely free and open source under the MIT license. No paid tiers, no watermark, no sign up.'
+		},
+		{
+			q: 'Is Katana open source?',
+			a: 'Yes. The full SvelteKit and Rust codebase is MIT licensed and public on GitHub, so you can read, fork and extend it.'
+		},
+		{
+			q: 'Which platforms does Katana run on?',
+			a: 'Katana ships for Windows (64 bit) today. It is built on Tauri, so support for other platforms is possible down the line.'
+		},
+		{
+			q: 'Is Katana a good Clipchamp alternative?',
+			a: 'That is exactly why it exists. Katana is a fast, minimal, offline desktop editor with no account required, built by someone who got tired of Clipchamp.'
+		},
+		{
+			q: 'Does Katana need an internet connection or an account?',
+			a: 'No. Katana is a native desktop app that runs fully offline. No login, no cloud, no telemetry.'
+		},
+		{
+			q: 'What formats can Katana export?',
+			a: 'MP4 (H.264 and H.265), WebM (VP9), MOV and GIF. When a clip needs no re-encoding, Katana copies the stream for a lossless export in seconds.'
+		}
+	];
+
+	// FAQPage structured data, driven by the same array so the two never drift.
+	const faqLd = JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'FAQPage',
+		mainEntity: faqs.map((f) => ({
+			'@type': 'Question',
+			name: f.q,
+			acceptedAnswer: { '@type': 'Answer', text: f.a }
+		}))
+	});
 </script>
+
+<svelte:head>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html `<script type="application/ld+json">${faqLd}</scr` + `ipt>`}
+</svelte:head>
 
 <div class="grid-bg" aria-hidden="true"></div>
 
@@ -64,6 +121,42 @@
 		{/each}
 	</section>
 
+	<section class="compare">
+		<h2 class="sec-head">How Katana compares</h2>
+		<div class="table-wrap">
+			<table class="cmp">
+				<thead>
+					<tr>
+						<th scope="col" class="row-label-head">Feature</th>
+						{#each rivals as name, i (name)}
+							<th scope="col" class:is-katana={i === 0}>{name}</th>
+						{/each}
+					</tr>
+				</thead>
+				<tbody>
+					{#each compareRows as row (row.label)}
+						<tr>
+							<th scope="row" class="row-label">{row.label}</th>
+							{#each row.cells as yes, i (i)}
+								<td class:is-katana={i === 0}>
+									{#if yes}
+										<span class="yes" aria-label="Yes">✓</span>
+									{:else}
+										<span class="no" aria-label="No">✕</span>
+									{/if}
+								</td>
+							{/each}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
+		<p class="cmp-note">
+			Comparison reflects each editor as of 2026. Katana is Windows only for now and proud of what it
+			does well: speed, a clean UI and lossless export.
+		</p>
+	</section>
+
 	<section class="origin">
 		<h2 class="origin-head">Why Katana?</h2>
 		<p class="origin-text">
@@ -71,6 +164,18 @@
 			lagged behind my own clicks. So I built the editor I actually wanted: a fast, minimal, open
 			source Clipchamp alternative that stays out of the way. Trim, compose, export, done.
 		</p>
+	</section>
+
+	<section class="faq">
+		<h2 class="sec-head">Frequently asked questions</h2>
+		<dl class="faq-list">
+			{#each faqs as f (f.q)}
+				<div class="qa">
+					<dt class="q">{f.q}</dt>
+					<dd class="a">{f.a}</dd>
+				</div>
+			{/each}
+		</dl>
 	</section>
 
 	<footer class="foot">
@@ -173,6 +278,93 @@
 		font-size: var(--katana-text-sm);
 		color: var(--katana-text-secondary);
 		margin: 0;
+	}
+
+	/* Shared section heading. */
+	.sec-head {
+		font-size: var(--katana-text-lg);
+		font-weight: var(--katana-weight-semibold);
+		letter-spacing: var(--katana-tracking-tight);
+		margin: 0 0 var(--katana-space-6);
+	}
+
+	/* ── Comparison table ────────────────────────────────────────── */
+	.compare {
+		padding: var(--katana-space-10) 0;
+	}
+	.table-wrap {
+		overflow-x: auto;
+	}
+	.cmp {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var(--katana-text-sm);
+		min-width: 32rem;
+	}
+	.cmp th,
+	.cmp td {
+		padding: var(--katana-space-3) var(--katana-space-4);
+		text-align: center;
+		border-bottom: var(--katana-border-width) solid var(--katana-border);
+	}
+	.cmp thead th {
+		font-weight: var(--katana-weight-semibold);
+		color: var(--katana-text-secondary);
+	}
+	.row-label-head,
+	.row-label {
+		text-align: left;
+		font-weight: var(--katana-weight-regular);
+		color: var(--katana-text-secondary);
+		white-space: nowrap;
+	}
+	/* Katana column stands out without shouting. */
+	.cmp .is-katana {
+		background: var(--katana-accent-muted);
+		color: var(--katana-text-primary);
+	}
+	.cmp thead .is-katana {
+		color: var(--katana-accent);
+		font-weight: var(--katana-weight-semibold);
+	}
+	.yes {
+		color: var(--katana-accent);
+		font-weight: var(--katana-weight-semibold);
+	}
+	.no {
+		color: var(--katana-text-muted);
+	}
+	.cmp-note {
+		font-size: var(--katana-text-xs);
+		color: var(--katana-text-muted);
+		margin: var(--katana-space-4) 0 0;
+		max-width: 40rem;
+	}
+
+	/* ── FAQ ─────────────────────────────────────────────────────── */
+	.faq {
+		padding: var(--katana-space-10) 0;
+	}
+	.faq-list {
+		display: grid;
+		gap: var(--katana-space-6);
+		margin: 0;
+		max-width: 44rem;
+	}
+	.qa {
+		margin: 0;
+	}
+	.q {
+		font-size: var(--katana-text-md);
+		font-weight: var(--katana-weight-semibold);
+		color: var(--katana-text-primary);
+		margin: 0 0 var(--katana-space-1);
+	}
+	.a {
+		font-size: var(--katana-text-sm);
+		color: var(--katana-text-secondary);
+		margin: 0;
+		line-height: var(--katana-leading-normal);
 	}
 
 	/* ── Origin story ────────────────────────────────────────────── */
