@@ -1,0 +1,18 @@
+/* Landing-specific base: scrollable page on the editor's dark theme.
+   (We intentionally do not import the editor's app.css, which locks body
+   overflow for the desktop shell.) */
+html,
+body {
+	height: auto;
+	min-height: 100%;
+	background: var(--katana-bg-base);
+}
+body {
+	color: var(--katana-text-primary);
+	font-family: var(--katana-font-sans);
+	font-size: var(--katana-text-base);
+	font-weight: var(--katana-weight-regular);
+	line-height: var(--katana-leading-normal);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}

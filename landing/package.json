@@ -1,0 +1,21 @@
+{
+	"name": "katana-landing",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.57.0",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"svelte": "^5.55.2",
+		"vite": "^8.0.7"
+	},
+	"dependencies": {
+		"@fontsource-variable/jetbrains-mono": "^5.2.8",
+		"@fontsource-variable/plus-jakarta-sans": "^5.2.8"
+	}
+}

@@ -6,6 +6,9 @@
 		size?: 'sm' | 'md' | 'lg';
 		disabled?: boolean;
 		type?: 'button' | 'submit';
+		/** When set, renders an anchor styled as a button. */
+		href?: string;
+		target?: string;
 		onclick?: () => void;
 		children: Snippet;
 	}
@@ -15,14 +18,28 @@
 		size = 'md',
 		disabled = false,
 		type = 'button',
+		href,
+		target,
 		onclick,
 		children
 	}: Props = $props();
 </script>
 
-<button class="btn {variant} {size}" {type} {disabled} {onclick}>
-	{@render children()}
-</button>
+{#if href}
+	<a
+		class="btn {variant} {size}"
+		{href}
+		{target}
+		rel={target === '_blank' ? 'noreferrer' : undefined}
+		{onclick}
+	>
+		{@render children()}
+	</a>
+{:else}
+	<button class="btn {variant} {size}" {type} {disabled} {onclick}>
+		{@render children()}
+	</button>
+{/if}
 
 <style>
 	.btn {
@@ -33,6 +50,7 @@
 		border-radius: var(--katana-radius-md);
 		font-family: var(--katana-font-sans);
 		font-weight: var(--katana-weight-medium);
+		text-decoration: none;
 		white-space: nowrap;
 		transition:
 			background var(--katana-duration-fast) var(--katana-ease-out),
