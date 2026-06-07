@@ -33,6 +33,10 @@
 	// Snap guides, surfaced by the layer currently being dragged.
 	let guide = $state({ snapX: false, snapY: false, active: false });
 
+	// Active set + base layer (drives the clock); look-ahead layers stay hidden.
+	const activeIds = $derived(new Set(editor.activeVideoClips.map((c) => c.id)));
+	const baseId = $derived(editor.activeVideoClips[0]?.id);
+
 	const hasClips = $derived(editor.clips.length > 0);
 	const selectedTransformed = $derived(
 		!!editor.selectedClip &&
@@ -67,14 +71,15 @@
 	<div class="stage">
 		{#if hasClips}
 			<div class="frame" style="--ar: {frameRatio}" bind:clientWidth={fw} bind:clientHeight={fh}>
-				{#each editor.activeVideoClips as clip, i (clip.id)}
+				{#each editor.videoLayers as clip (clip.id)}
 					<CompositeLayer
 						{clip}
 						{fw}
 						{fh}
 						{frameRatio}
+						active={activeIds.has(clip.id)}
 						selected={clip.id === editor.selectedId}
-						clockMaster={i === 0}
+						clockMaster={clip.id === baseId}
 						onselect={(id) => editor.select(id)}
 						ondragstate={(s) => (guide = s)}
 					/>

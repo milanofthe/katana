@@ -16,6 +16,8 @@
 		/** Output frame aspect ratio (width / height). */
 		frameRatio: number;
 		selected: boolean;
+		/** Visible/playing now (vs. a pre-decoded look-ahead layer). */
+		active: boolean;
 		/** This is the base active layer that drives the master clock. */
 		clockMaster: boolean;
 		onselect: (id: string) => void;
@@ -23,7 +25,8 @@
 		ondragstate: (s: { snapX: boolean; snapY: boolean; active: boolean }) => void;
 	}
 
-	let { clip, fw, fh, frameRatio, selected, clockMaster, onselect, ondragstate }: Props = $props();
+	let { clip, fw, fh, frameRatio, selected, active, clockMaster, onselect, ondragstate }: Props =
+		$props();
 
 	let video = $state<HTMLVideoElement>();
 
@@ -112,7 +115,8 @@
 	$effect(() => {
 		const v = video;
 		if (!v) return;
-		if (editor.playing) v.play().catch(() => {});
+		// Look-ahead layers stay paused at their in-point until they go active.
+		if (active && editor.playing) v.play().catch(() => {});
 		else v.pause();
 	});
 
@@ -149,7 +153,8 @@
 	$effect(() => {
 		const v = video;
 		if (!v) return;
-		const target = clipSourceTime(clip, editor.localTime(clip));
+		// Active layers track the playhead; look-ahead layers park at the in-point.
+		const target = clipSourceTime(clip, active ? editor.localTime(clip) : 0);
 		if (Math.abs(v.currentTime - target) <= PLAYER.seekThresholdSec) return;
 		cancelAnimationFrame(seekRaf);
 		seekRaf = requestAnimationFrame(() => {
@@ -158,7 +163,7 @@
 	});
 
 	function onLoadedMeta() {
-		if (video) video.currentTime = clipSourceTime(clip, editor.localTime(clip));
+		if (video) video.currentTime = clipSourceTime(clip, active ? editor.localTime(clip) : 0);
 	}
 
 	// As the base layer, drive the master clock from the actually-presented frame
@@ -206,6 +211,7 @@
 	class="layer"
 	class:selected
 	class:dragging
+	class:hidden={!active}
 	preload="metadata"
 	style={boxStyle}
 	onpointerdown={onPointerDown}
@@ -234,6 +240,10 @@
 	.layer.dragging {
 		cursor: grabbing;
 		will-change: transform;
+	}
+	/* Pre-decoded look-ahead layer: mounted/decoding but not shown yet. */
+	.layer.hidden {
+		visibility: hidden;
 	}
 
 	/* Instant low-res scrub preview over the catching-up video. */

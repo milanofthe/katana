@@ -159,6 +159,16 @@ class EditorStore {
 	);
 	/** Active video clips, base-first (for the compositing viewport). */
 	activeVideoClips = $derived(this.activeClips.filter((c) => c.kind === 'video'));
+
+	/** Video layers to mount: active clips plus (while playing) upcoming clips
+	 * within the look-ahead window, so cuts don't restart decoding. */
+	videoLayers = $derived.by(() => {
+		const t = this.playhead;
+		const look = this.playing ? PLAYER.lookaheadSec : 0;
+		return this.clips
+			.filter((c) => c.kind === 'video' && clipEnd(c) > t && c.start <= t + look)
+			.sort((a, b) => a.track - b.track || a.start - b.start);
+	});
 	/** Active audio clips (for hidden audio playback). */
 	activeAudioClips = $derived(this.activeClips.filter((c) => c.kind === 'audio'));
 

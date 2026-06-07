@@ -35,7 +35,12 @@ export const PLAYER = {
 	 * If no video frame has driven the clock within this many ms, the wall-clock
 	 * takes over (gaps / audio-only / stalled decode).
 	 */
-	frameLockStaleMs: 120
+	frameLockStaleMs: 120,
+	/**
+	 * During playback, mount + pre-decode upcoming clips this many seconds before
+	 * they start, so clip boundaries don't restart decoding (no stutter at cuts).
+	 */
+	lookaheadSec: 0.6
 } as const;
 
 export const SEEK = {
