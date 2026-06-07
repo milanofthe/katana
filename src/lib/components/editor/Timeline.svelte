@@ -581,6 +581,8 @@
 		position: absolute;
 		top: var(--katana-timeline-gutter);
 		bottom: var(--katana-timeline-gutter);
+		/* Skip painting clips scrolled out of view (size stays from insets/width). */
+		content-visibility: auto;
 		display: flex;
 		border-radius: var(--katana-radius-md);
 		overflow: hidden;
