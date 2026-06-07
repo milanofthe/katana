@@ -492,19 +492,6 @@
 			</div>
 		{/if}
 	</div>
-
-	{#if editor.clips.length > 0}
-		<div class="track-tools">
-			<button class="add-track" onclick={() => editor.addVideoTrack()}>
-				<Icon name="plus" size={14} />
-				<span>Video track</span>
-			</button>
-			<button class="add-track" onclick={() => editor.addAudioTrack()}>
-				<Icon name="plus" size={14} />
-				<span>Audio track</span>
-			</button>
-		</div>
-	{/if}
 </div>
 
 <style>
@@ -525,33 +512,6 @@
 		overflow-x: auto;
 		overflow-y: auto;
 		/* Scrollbar styling is global (see app.css). */
-	}
-
-	/* Explicit track management: add lanes here rather than dynamically on drag. */
-	.track-tools {
-		display: flex;
-		gap: var(--katana-space-2);
-		padding: var(--katana-space-1) var(--katana-space-2);
-		border-top: var(--katana-border-width) solid var(--katana-border);
-	}
-	.add-track {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--katana-space-1);
-		padding: var(--katana-space-1) var(--katana-space-2);
-		border-radius: var(--katana-radius-md);
-		border: var(--katana-border-width) solid var(--katana-border);
-		background: var(--katana-bg-surface);
-		color: var(--katana-text-muted);
-		font-size: var(--katana-text-xs);
-		cursor: pointer;
-		transition:
-			border-color var(--katana-duration-fast) var(--katana-ease-out),
-			color var(--katana-duration-fast) var(--katana-ease-out);
-	}
-	.add-track:hover {
-		border-color: var(--katana-border-strong);
-		color: var(--katana-text-primary);
 	}
 
 	.tl-content {

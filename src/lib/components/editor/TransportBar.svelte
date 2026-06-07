@@ -68,6 +68,18 @@
 
 	<span class="divider" aria-hidden="true"></span>
 
+	<!-- Track group: add empty video / audio lanes -->
+	<div class="group tracks">
+		<Tooltip text="Add video track" placement="top">
+			<IconButton icon="film" label="Add video track" size="md" disabled={!hasClips} onclick={() => editor.addVideoTrack()} />
+		</Tooltip>
+		<Tooltip text="Add audio track" placement="top">
+			<IconButton icon="volume" label="Add audio track" size="md" disabled={!hasClips} onclick={() => editor.addAudioTrack()} />
+		</Tooltip>
+	</div>
+
+	<span class="divider" aria-hidden="true"></span>
+
 	<!-- Zoom and snap group -->
 	<div class="group zoom-snap">
 		<Tooltip text="Zoom out" placement="top">
