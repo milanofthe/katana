@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { editor, clipDuration, type Clip } from '$lib/editor/store.svelte';
+	import {
+		editor,
+		clipDuration,
+		clipSourceTime,
+		clipFrameIndex,
+		type Clip
+	} from '$lib/editor/store.svelte';
 	import { PLAYER, VIEWPORT, HISTORY } from '$lib/constants';
 
 	interface Props {
@@ -141,7 +147,7 @@
 	$effect(() => {
 		const v = video;
 		if (!v) return;
-		const target = clip.inPoint + editor.localTime(clip) * clip.speed;
+		const target = clipSourceTime(clip, editor.localTime(clip));
 		if (Math.abs(v.currentTime - target) <= PLAYER.seekThresholdSec) return;
 		cancelAnimationFrame(seekRaf);
 		seekRaf = requestAnimationFrame(() => {
@@ -150,8 +156,23 @@
 	});
 
 	function onLoadedMeta() {
-		if (video) video.currentTime = clip.inPoint + editor.localTime(clip) * clip.speed;
+		if (video) video.currentTime = clipSourceTime(clip, editor.localTime(clip));
 	}
+
+	// Layout shared by the video and the scrub overlay.
+	const boxStyle = $derived(
+		box
+			? `left:${box.left}px;top:${box.top}px;width:${box.w}px;height:${box.h}px;transform:translate3d(${dragOffX}px,${dragOffY}px,0)`
+			: ''
+	);
+
+	// Instant low-res preview while scrubbing: nearest captured thumbnail, shown
+	// over the (catching-up) video. Hidden the moment scrubbing stops.
+	const scrubFrame = $derived(
+		editor.scrubbing && clip.thumbnails.length > 0
+			? clip.thumbnails[clipFrameIndex(clip, editor.localTime(clip))]
+			: undefined
+	);
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -- viewport canvas; keyboard handled via shortcuts -->
@@ -163,9 +184,7 @@
 	class:selected
 	class:dragging
 	preload="metadata"
-	style={box
-		? `left:${box.left}px;top:${box.top}px;width:${box.w}px;height:${box.h}px;transform:translate3d(${dragOffX}px,${dragOffY}px,0)`
-		: ''}
+	style={boxStyle}
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
@@ -173,6 +192,9 @@
 	onwheel={onWheel}
 	onloadedmetadata={onLoadedMeta}
 ></video>
+{#if scrubFrame}
+	<img class="scrub-frame" src={scrubFrame} alt="" style={boxStyle} />
+{/if}
 
 <style>
 	.layer {
@@ -189,5 +211,14 @@
 	.layer.dragging {
 		cursor: grabbing;
 		will-change: transform;
+	}
+
+	/* Instant low-res scrub preview over the catching-up video. */
+	.scrub-frame {
+		position: absolute;
+		display: block;
+		object-fit: fill;
+		pointer-events: none;
+		z-index: 1;
 	}
 </style>

@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { Icon, IconButton } from '$lib';
-	import { editor, clipDuration, clipEnd, type Clip, type ClipKind } from '$lib/editor/store.svelte';
+	import {
+		editor,
+		clipDuration,
+		clipEnd,
+		clipSourceTime,
+		type Clip,
+		type ClipKind
+	} from '$lib/editor/store.svelte';
 	import { scrubAudio } from '$lib/editor/waveform';
 	import { formatTimecode } from '$lib/editor/time';
 	import { TIMELINE, REORDER, THUMB, WAVEFORM } from '$lib/constants';
@@ -80,7 +87,7 @@
 		const active = editor.activeClips;
 		const top = active[active.length - 1];
 		if (!top) return;
-		const sourceTime = top.inPoint + (editor.playhead - top.start) * top.speed;
+		const sourceTime = clipSourceTime(top, editor.playhead - top.start);
 		scrubAudio(top.path, sourceTime, performance.now());
 	}
 
@@ -210,6 +217,7 @@
 	function startScrub(e: PointerEvent) {
 		e.preventDefault();
 		editor.pause();
+		editor.scrubbing = true;
 		editor.seek(snapSeconds(pointerToSeconds(e.clientX), null));
 		scrubFeedback();
 		let raf = 0;
@@ -223,6 +231,7 @@
 		};
 		const onUp = () => {
 			cancelAnimationFrame(raf);
+			editor.scrubbing = false;
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
 		};

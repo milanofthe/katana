@@ -74,6 +74,20 @@ export function clipEnd(c: Clip): number {
 	return c.start + clipDuration(c);
 }
 
+/** Source media time for a clip at a local timeline offset (seconds from start).
+ * The single mapping between timeline time and source time (speed-aware). */
+export function clipSourceTime(c: Clip, localTimelineSeconds: number): number {
+	return c.inPoint + localTimelineSeconds * (c.speed || 1);
+}
+
+/** Index of the nearest captured thumbnail for a local timeline offset. */
+export function clipFrameIndex(c: Clip, localTimelineSeconds: number): number {
+	const n = c.thumbnails.length;
+	if (n === 0) return 0;
+	const frac = c.sourceDuration > 0 ? clipSourceTime(c, localTimelineSeconds) / c.sourceDuration : 0;
+	return Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
+}
+
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Undoable slice of the editor: the document, not the transient view/clock. */
@@ -93,6 +107,8 @@ class EditorStore {
 	pxPerSec = $state<number>(TIMELINE.defaultPxPerSec);
 	/** True while a file is being dragged over the window (for the drop overlay). */
 	dropActive = $state(false);
+	/** True while the playhead is being scrubbed (enables instant LOD preview). */
+	scrubbing = $state(false);
 	/** Count of in-flight imports (for the busy indicator). */
 	importing = $state(0);
 	/** True while the export dialog modal is open. */
@@ -361,7 +377,7 @@ class EditorStore {
 		const local = this.localTime(c);
 		if (local <= 0 || local >= clipDuration(c)) return;
 		// Local timeline time -> source-time cut point.
-		const cut = c.inPoint + local * c.speed;
+		const cut = clipSourceTime(c, local);
 		if (cut <= c.inPoint + CLIP.minDurationSec) return;
 		if (cut >= c.outPoint - CLIP.minDurationSec) return;
 		this.recordBefore();
