@@ -109,6 +109,29 @@
 		</div>
 	</section>
 
+	<section class="shots" aria-label="Screenshots of Katana">
+		<figure class="shot">
+			<img
+				src="/screenshot-editor.webp"
+				width="1500"
+				height="998"
+				loading="lazy"
+				decoding="async"
+				alt="Katana video editor showing a multitrack timeline, the preview canvas and the clip properties panel"
+			/>
+		</figure>
+		<figure class="shot">
+			<img
+				src="/screenshot-export.webp"
+				width="1500"
+				height="999"
+				loading="lazy"
+				decoding="async"
+				alt="Katana export dialog with MP4, WebM, MOV and GIF formats plus resolution and quality settings"
+			/>
+		</figure>
+	</section>
+
 	<section class="features">
 		{#each features as f (f.title)}
 			<div class="feat">
@@ -248,6 +271,24 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--katana-space-3);
+	}
+
+	/* ── Screenshots (side by side) ──────────────────────────────── */
+	.shots {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--katana-space-4);
+		padding: var(--katana-space-4) 0 var(--katana-space-6);
+	}
+	.shot {
+		margin: 0;
+		min-width: 0;
+	}
+	.shot img {
+		width: 100%;
+		height: auto;
+		border-radius: var(--katana-radius-md);
+		border: var(--katana-border-width) solid var(--katana-border);
 	}
 
 	/* ── Features ────────────────────────────────────────────────── */
@@ -413,7 +454,8 @@
 	}
 
 	@media (max-width: 40rem) {
-		.features {
+		.features,
+		.shots {
 			grid-template-columns: 1fr;
 		}
 	}

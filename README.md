@@ -6,6 +6,11 @@
 
 <p align="center">Trim, cut and concatenate clips, the part of the job you'd otherwise open Clipchamp for, without the sluggish UX.</p>
 
+<p align="center">
+  <img src="static/screenshot-editor.png" alt="Katana editor: multitrack timeline, preview canvas and clip properties" width="49%" />
+  <img src="static/screenshot-export.png" alt="Katana export dialog with MP4, WebM, MOV and GIF formats" width="49%" />
+</p>
+
 ---
 
 ## What it is
