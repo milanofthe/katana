@@ -111,25 +111,24 @@
 
 	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
-	// Lane indices per section, top-to-bottom. A spare drop lane is exposed only
-	// while a clip of that kind is being dragged. The video section always shows
-	// at least one lane; the audio section appears only once audio exists.
+	// Lane indices per section, top-to-bottom. Only occupied lanes are shown; a
+	// spare drop lane is exposed while a clip of that kind is dragged. An empty
+	// timeline shows no lanes at all (see the empty state below).
 	function buildLanes(kind: ClipKind): number[] {
 		const occupied = kind === 'video' ? editor.videoTrackCount : editor.audioTrackCount;
 		const dragging = dragActive && dragKind === kind;
-		let total = dragging ? dragLaneCount : occupied;
-		if (kind === 'video') total = Math.max(1, total);
+		const total = dragging ? dragLaneCount : occupied;
 		return Array.from({ length: Math.max(0, total) }, (_, i) => total - 1 - i);
 	}
 	const videoLanes = $derived(buildLanes('video'));
 	const audioLanes = $derived(buildLanes('audio'));
 
 	type LaneRow = { kind: ClipKind; track: number } | { divider: true };
-	// Video lanes, then (if any audio) a divider and the audio lanes.
+	// Video lanes, then (only if both sections exist) a divider and audio lanes.
 	const lanes = $derived.by<LaneRow[]>(() => {
 		const out: LaneRow[] = videoLanes.map((track) => ({ kind: 'video' as const, track }));
 		if (audioLanes.length) {
-			out.push({ divider: true });
+			if (videoLanes.length) out.push({ divider: true });
 			for (const track of audioLanes) out.push({ kind: 'audio' as const, track });
 		}
 		return out;
@@ -364,6 +363,7 @@
 <div class="timeline">
 	<div class="tl-scroll" use:wheelZoomScroll>
 		<div class="tl-content" bind:this={contentEl} style="width: {contentWidth}px">
+			{#if editor.clips.length > 0}
 			<!-- Ruler doubles as the scrub bar -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -- pointer scrubbing; keyboard via arrow-key shortcuts -->
 			<div class="ruler" onpointerdown={startScrub}>
@@ -475,16 +475,16 @@
 			</div>
 
 			<!-- Playhead spanning ruler + lanes (GPU transform for a smooth 60fps sweep) -->
-			{#if editor.clips.length > 0}
-				<div class="playhead" style="transform: translateX({playheadX}px)">
-					<div class="playhead-head"></div>
-				</div>
+			<div class="playhead" style="transform: translateX({playheadX}px)">
+				<div class="playhead-head"></div>
+			</div>
 			{/if}
 		</div>
 
 		{#if editor.clips.length === 0}
 			<div class="tl-empty">
-				{editor.importing > 0 ? 'Importing…' : 'Import or drop a video to start editing'}
+				<Icon name="import" size={20} />
+				<span>{editor.importing > 0 ? 'Importing…' : 'Import or drop a video to start editing'}</span>
 			</div>
 		{/if}
 	</div>
@@ -779,6 +779,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		gap: var(--katana-space-2);
 		font-size: var(--katana-text-sm);
 		color: var(--katana-text-muted);
 		pointer-events: none;
