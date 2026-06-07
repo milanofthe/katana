@@ -105,19 +105,15 @@
 	let dragDx = $state(0);
 	/** Target track lane of the dragged clip during the gesture. */
 	let dragTrack = $state(0);
-	/** Lane count frozen for the duration of a clip drag (occupied + 1 spare). */
-	let dragLaneCount = $state(0);
 	let justDragged = false; // suppress the click that follows a drag
 
 	const contentWidth = $derived(editor.totalDuration * editor.pxPerSec + TIMELINE.gutterPx * 2);
 
-	// Lane indices per section, top-to-bottom. Only occupied lanes are shown; a
-	// spare drop lane is exposed while a clip of that kind is dragged. An empty
-	// timeline shows no lanes at all (see the empty state below).
+	// Lane indices per section, top-to-bottom. Lane counts are explicit (managed
+	// by the "+ track" buttons); dragging never adds a lane. Empty timeline shows
+	// no lanes at all (see the empty state below).
 	function buildLanes(kind: ClipKind): number[] {
-		const occupied = kind === 'video' ? editor.videoTrackCount : editor.audioTrackCount;
-		const dragging = dragActive && dragKind === kind;
-		const total = dragging ? dragLaneCount : occupied;
+		const total = kind === 'video' ? editor.videoLaneCount : editor.audioLaneCount;
 		return Array.from({ length: Math.max(0, total) }, (_, i) => total - 1 - i);
 	}
 	const videoLanes = $derived(buildLanes('video'));
@@ -249,7 +245,8 @@
 		const origLeftPx = origStart * editor.pxPerSec;
 		const startTrack = clip.track;
 		const kind = clip.kind;
-		const trackCount0 = kind === 'video' ? editor.videoTrackCount : editor.audioTrackCount;
+		// Drag is confined to existing lanes of this section (use "+ track" to add).
+		const laneCount = kind === 'video' ? editor.videoLaneCount : editor.audioLaneCount;
 		// One lane's height (constant); used for stable vertical lane mapping.
 		const laneH = lanesEl?.querySelector('.lane')?.clientHeight || 64;
 		dragId = id;
@@ -262,10 +259,7 @@
 		const onMove = (ev: PointerEvent) => {
 			const dx = ev.clientX - startX;
 			const dy = ev.clientY - startY;
-			if (!dragActive && Math.hypot(dx, dy) > REORDER.dragThresholdPx) {
-				dragActive = true;
-				dragLaneCount = trackCount0 + 1; // expose exactly one spare drop lane
-			}
+			if (!dragActive && Math.hypot(dx, dy) > REORDER.dragThresholdPx) dragActive = true;
 			if (!dragActive) return;
 			const cx = ev.clientX;
 			const cy = ev.clientY;
@@ -275,9 +269,9 @@
 				committedStart = newStart;
 				// Live offset rendered via GPU transform; store stays untouched.
 				dragDx = newStart * editor.pxPerSec - origLeftPx;
-				// Move up by whole lanes; promote by at most one new track per drag.
+				// Move up/down by whole lanes, clamped to existing lanes.
 				const laneDelta = Math.round((startY - cy) / laneH);
-				dragTrack = Math.max(0, Math.min(trackCount0, startTrack + laneDelta));
+				dragTrack = Math.max(0, Math.min(laneCount - 1, startTrack + laneDelta));
 			});
 		};
 		const onUp = () => {
@@ -339,37 +333,6 @@
 		window.addEventListener('pointerup', onUp);
 	}
 
-	// Drag a fade handle (top corner) to set fade in/out duration.
-	function startFadeDrag(e: PointerEvent, clipId: string, edge: 'in' | 'out') {
-		e.preventDefault();
-		e.stopPropagation();
-		editor.select(clipId);
-		const clip = editor.clips.find((c) => c.id === clipId);
-		if (!clip) return;
-		const startX = e.clientX;
-		const startVal = edge === 'in' ? clip.fadeInSec : clip.fadeOutSec;
-		editor.beginTransaction();
-		let raf = 0;
-		const onMove = (ev: PointerEvent) => {
-			const x = ev.clientX;
-			cancelAnimationFrame(raf);
-			raf = requestAnimationFrame(() => {
-				// Fade in grows rightward; fade out grows leftward.
-				const delta = ((x - startX) / editor.pxPerSec) * (edge === 'in' ? 1 : -1);
-				if (edge === 'in') editor.setFadeInFor(clipId, startVal + delta);
-				else editor.setFadeOutFor(clipId, startVal + delta);
-			});
-		};
-		const onUp = () => {
-			cancelAnimationFrame(raf);
-			window.removeEventListener('pointermove', onMove);
-			window.removeEventListener('pointerup', onUp);
-			editor.endTransaction();
-		};
-		window.addEventListener('pointermove', onMove);
-		window.addEventListener('pointerup', onUp);
-	}
-
 	// Fade region width in px, clamped to the clip width.
 	function fadePx(sec: number, widthPx: number): number {
 		return Math.max(0, Math.min(widthPx, sec * editor.pxPerSec));
@@ -417,11 +380,7 @@
 					{#if 'divider' in lane}
 						<div class="section-divider"></div>
 					{:else}
-						<div
-							class="lane"
-							class:audio-lane={lane.kind === 'audio'}
-							class:spare={dragActive && dragKind === lane.kind && lane.track === dragLaneCount - 1}
-						>
+						<div class="lane" class:audio-lane={lane.kind === 'audio'}>
 							{#each clipsForLane(lane.kind, lane.track) as p (p.clip.id)}
 							<div
 								class="clip"
@@ -501,28 +460,12 @@
 									></div>
 								{/if}
 
-								<!-- Fade ramps (visual) + draggable corner handles -->
+								<!-- Fade ramp indicators (set fades in the properties panel) -->
 								{#if p.clip.fadeInSec > 0}
 									<div class="fade-tri fade-in" style="width: {fadePx(p.clip.fadeInSec, p.width)}px"></div>
 								{/if}
 								{#if p.clip.fadeOutSec > 0}
 									<div class="fade-tri fade-out" style="width: {fadePx(p.clip.fadeOutSec, p.width)}px"></div>
-								{/if}
-								{#if p.width >= TIMELINE.minTrimWidthPx}
-									<!-- svelte-ignore a11y_no_static_element_interactions -- pointer fade handle -->
-									<div
-										class="fade-handle fade-in-h"
-										style="left: {fadePx(p.clip.fadeInSec, p.width)}px"
-										title="Fade in"
-										onpointerdown={(e) => startFadeDrag(e, p.clip.id, 'in')}
-									></div>
-									<!-- svelte-ignore a11y_no_static_element_interactions -- pointer fade handle -->
-									<div
-										class="fade-handle fade-out-h"
-										style="right: {fadePx(p.clip.fadeOutSec, p.width)}px"
-										title="Fade out"
-										onpointerdown={(e) => startFadeDrag(e, p.clip.id, 'out')}
-									></div>
 								{/if}
 
 								<div class="clip-actions">
@@ -549,6 +492,19 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if editor.clips.length > 0}
+		<div class="track-tools">
+			<button class="add-track" onclick={() => editor.addVideoTrack()}>
+				<Icon name="plus" size={14} />
+				<span>Video track</span>
+			</button>
+			<button class="add-track" onclick={() => editor.addAudioTrack()}>
+				<Icon name="plus" size={14} />
+				<span>Audio track</span>
+			</button>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -569,6 +525,33 @@
 		overflow-x: auto;
 		overflow-y: auto;
 		/* Scrollbar styling is global (see app.css). */
+	}
+
+	/* Explicit track management: add lanes here rather than dynamically on drag. */
+	.track-tools {
+		display: flex;
+		gap: var(--katana-space-2);
+		padding: var(--katana-space-1) var(--katana-space-2);
+		border-top: var(--katana-border-width) solid var(--katana-border);
+	}
+	.add-track {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--katana-space-1);
+		padding: var(--katana-space-1) var(--katana-space-2);
+		border-radius: var(--katana-radius-md);
+		border: var(--katana-border-width) solid var(--katana-border);
+		background: var(--katana-bg-surface);
+		color: var(--katana-text-muted);
+		font-size: var(--katana-text-xs);
+		cursor: pointer;
+		transition:
+			border-color var(--katana-duration-fast) var(--katana-ease-out),
+			color var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.add-track:hover {
+		border-color: var(--katana-border-strong);
+		color: var(--katana-text-primary);
 	}
 
 	.tl-content {
@@ -625,17 +608,6 @@
 		height: var(--katana-border-width-thick);
 		background: var(--katana-border-strong);
 	}
-	/* The spare lane on top reads as a lighter drop zone for new layers. */
-	.lane.spare {
-		background: repeating-linear-gradient(
-			-45deg,
-			transparent,
-			transparent var(--katana-space-2),
-			var(--katana-bg-surface) var(--katana-space-2),
-			var(--katana-bg-surface) calc(var(--katana-space-2) * 2)
-		);
-		opacity: 0.5;
-	}
 
 	/* Clip snippet */
 	.clip {
@@ -655,7 +627,9 @@
 		border-color: var(--katana-border-strong);
 	}
 	.clip.selected {
-		border: var(--katana-border-width-thick) solid var(--katana-accent);
+		/* Highlight only: keep the border width constant so the clip never resizes. */
+		border-color: var(--katana-accent);
+		box-shadow: inset 0 0 0 var(--katana-border-width-thick) var(--katana-accent);
 	}
 	.clip.dragging {
 		z-index: 5;
@@ -806,30 +780,6 @@
 	.fade-tri.fade-out {
 		right: 0;
 		clip-path: polygon(100% 0, 100% 100%, 0 0);
-	}
-
-	/* Fade handles: small draggable dots at the top corners, shown on hover. */
-	.fade-handle {
-		position: absolute;
-		top: var(--katana-space-1);
-		width: var(--katana-space-3);
-		height: var(--katana-space-3);
-		border-radius: var(--katana-radius-full);
-		background: var(--katana-accent);
-		border: var(--katana-border-width) solid var(--katana-accent-contrast);
-		cursor: ew-resize;
-		z-index: 4;
-		opacity: 0;
-		transition: opacity var(--katana-duration-fast) var(--katana-ease-out);
-	}
-	.fade-in-h {
-		transform: translateX(-50%);
-	}
-	.fade-out-h {
-		transform: translateX(50%);
-	}
-	.clip:hover .fade-handle {
-		opacity: 1;
 	}
 
 	/* Per-clip action buttons, revealed on hover */

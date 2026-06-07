@@ -93,7 +93,7 @@
 		height: var(--katana-space-4);
 		margin-top: calc((var(--katana-space-1) - var(--katana-space-4)) / 2);
 		border-radius: var(--katana-radius-full);
-		background: var(--katana-text-primary);
+		background: var(--katana-bg-elevated);
 		border: var(--katana-border-width-thick) solid var(--katana-accent);
 		transition: transform var(--katana-duration-fast) var(--katana-ease-out);
 	}
@@ -101,7 +101,7 @@
 		width: var(--katana-space-4);
 		height: var(--katana-space-4);
 		border-radius: var(--katana-radius-full);
-		background: var(--katana-text-primary);
+		background: var(--katana-bg-elevated);
 		border: var(--katana-border-width-thick) solid var(--katana-accent);
 	}
 	.slider:hover::-webkit-slider-thumb {

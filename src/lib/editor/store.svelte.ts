@@ -129,19 +129,29 @@ class EditorStore {
 	propsCollapsed = $state(false);
 	timelineHeight = $state<number>(LAYOUT.timelineHeightDefault);
 	timelineCollapsed = $state(false);
+	/** Explicit lane counts (added via the timeline "+ track" buttons). */
+	videoTracks = $state(1);
+	audioTracks = $state(0);
 
 	/** Project length: the latest clip end across all tracks. */
 	totalDuration = $derived(this.clips.reduce((max, c) => Math.max(max, clipEnd(c)), 0));
 	selectedClip = $derived(this.clips.find((c) => c.id === this.selectedId) ?? null);
 
-	/** Occupied video lanes (0 if none). Video tracks index z-order. */
-	videoTrackCount = $derived(this.trackCountFor('video'));
-	/** Occupied audio lanes (0 if none). Audio tracks are a separate section. */
-	audioTrackCount = $derived(this.trackCountFor('audio'));
-
 	private trackCountFor(kind: ClipKind): number {
 		const tracks = this.clips.filter((c) => c.kind === kind).map((c) => c.track);
 		return tracks.length ? Math.max(...tracks) + 1 : 0;
+	}
+
+	/** Lanes shown per section: the explicit count, never fewer than occupied. */
+	videoLaneCount = $derived(Math.max(this.videoTracks, this.trackCountFor('video')));
+	audioLaneCount = $derived(Math.max(this.audioTracks, this.trackCountFor('audio')));
+
+	/** Add an empty lane to a section (timeline "+ track" buttons). */
+	addVideoTrack() {
+		this.videoTracks = this.videoLaneCount + 1;
+	}
+	addAudioTrack() {
+		this.audioTracks = this.audioLaneCount + 1;
 	}
 
 	/** Interval index over clip [start, end); rebuilt only when clips change. */
@@ -284,7 +294,7 @@ class EditorStore {
 			...v,
 			id: crypto.randomUUID(),
 			kind: 'audio',
-			track: this.trackCountFor('audio'), // new lane below existing audio
+			track: this.audioLaneCount, // new lane below existing audio
 			transform: { ...DEFAULT_TRANSFORM },
 			thumbnails: []
 		};
@@ -314,6 +324,8 @@ class EditorStore {
 		this.pause();
 		this.clips = clips;
 		this.aspectRatio = aspectRatio;
+		this.videoTracks = Math.max(1, this.trackCountFor('video'));
+		this.audioTracks = this.trackCountFor('audio');
 		this.selectedId = clips[0]?.id ?? null;
 		this.playhead = 0;
 		this.waveforms = {};
@@ -496,20 +508,6 @@ class EditorStore {
 
 	setFadeOut(seconds: number) {
 		const c = this.selectedClip;
-		if (!c) return;
-		this.recordBefore();
-		c.fadeOutSec = clamp(seconds, 0, clipDuration(c));
-	}
-
-	/** Set a specific clip's fade in/out (used by the timeline fade handles). */
-	setFadeInFor(id: string, seconds: number) {
-		const c = this.clips.find((x) => x.id === id);
-		if (!c) return;
-		this.recordBefore();
-		c.fadeInSec = clamp(seconds, 0, clipDuration(c));
-	}
-	setFadeOutFor(id: string, seconds: number) {
-		const c = this.clips.find((x) => x.id === id);
 		if (!c) return;
 		this.recordBefore();
 		c.fadeOutSec = clamp(seconds, 0, clipDuration(c));
