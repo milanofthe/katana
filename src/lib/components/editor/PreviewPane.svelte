@@ -67,13 +67,14 @@
 	<div class="stage">
 		{#if hasClips}
 			<div class="frame" style="--ar: {frameRatio}" bind:clientWidth={fw} bind:clientHeight={fh}>
-				{#each editor.activeVideoClips as clip (clip.id)}
+				{#each editor.activeVideoClips as clip, i (clip.id)}
 					<CompositeLayer
 						{clip}
 						{fw}
 						{fh}
 						{frameRatio}
 						selected={clip.id === editor.selectedId}
+						clockMaster={i === 0}
 						onselect={(id) => editor.select(id)}
 						ondragstate={(s) => (guide = s)}
 					/>

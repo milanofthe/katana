@@ -6,7 +6,7 @@
 // (seconds) and a `track` (z-order lane, higher = rendered on top). Clips may
 // overlap in time; the master playhead drives a single clock and every visible
 // clip syncs its <video> to it.
-import { TIMELINE, CLIP, HISTORY, LAYOUT } from '$lib/constants';
+import { TIMELINE, CLIP, HISTORY, LAYOUT, PLAYER } from '$lib/constants';
 import { IntervalIndex } from './intervals';
 
 export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
@@ -316,8 +316,12 @@ class EditorStore {
 	}
 
 	// ── Master playback clock ───────────────────────────────────
+	// The base video drives the playhead frame-accurately via reportFrameTime
+	// (requestVideoFrameCallback); the wall-clock rAF takes over for gaps,
+	// audio-only stretches, or stalled decode.
 	private raf = 0;
 	private lastTs = 0;
+	private lastFrameReport = 0;
 
 	play() {
 		if (this.playing || this.clips.length === 0) return;
@@ -330,16 +334,31 @@ class EditorStore {
 			const now = performance.now();
 			const dt = (now - this.lastTs) / 1000;
 			this.lastTs = now;
-			const t = this.playhead + dt;
-			if (t >= this.totalDuration) {
-				this.playhead = this.totalDuration;
-				this.playing = false;
-				return;
+			// Advance by wall-clock only when no recent video frame drove the clock.
+			if (now - this.lastFrameReport >= PLAYER.frameLockStaleMs) {
+				const t = this.playhead + dt;
+				if (t >= this.totalDuration) {
+					this.playhead = this.totalDuration;
+					this.playing = false;
+					return;
+				}
+				this.playhead = t;
 			}
-			this.playhead = t;
 			this.raf = requestAnimationFrame(step);
 		};
 		this.raf = requestAnimationFrame(step);
+	}
+
+	/** Lock the master playhead to the base video's actual presented frame. */
+	reportFrameTime(timelineSeconds: number) {
+		if (!this.playing) return;
+		this.lastFrameReport = performance.now();
+		if (timelineSeconds >= this.totalDuration) {
+			this.playhead = this.totalDuration;
+			this.pause();
+			return;
+		}
+		this.playhead = Math.max(0, timelineSeconds);
 	}
 
 	pause() {

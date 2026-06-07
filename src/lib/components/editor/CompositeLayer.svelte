@@ -16,12 +16,14 @@
 		/** Output frame aspect ratio (width / height). */
 		frameRatio: number;
 		selected: boolean;
+		/** This is the base active layer that drives the master clock. */
+		clockMaster: boolean;
 		onselect: (id: string) => void;
 		/** Report snap state up so the frame can draw center guides. */
 		ondragstate: (s: { snapX: boolean; snapY: boolean; active: boolean }) => void;
 	}
 
-	let { clip, fw, fh, frameRatio, selected, onselect, ondragstate }: Props = $props();
+	let { clip, fw, fh, frameRatio, selected, clockMaster, onselect, ondragstate }: Props = $props();
 
 	let video = $state<HTMLVideoElement>();
 
@@ -158,6 +160,27 @@
 	function onLoadedMeta() {
 		if (video) video.currentTime = clipSourceTime(clip, editor.localTime(clip));
 	}
+
+	// As the base layer, drive the master clock from the actually-presented frame
+	// (frame-accurate, zero drift). Falls back to the store's wall-clock otherwise.
+	$effect(() => {
+		const v = video;
+		if (!v || !clockMaster || !editor.playing) return;
+		if (!('requestVideoFrameCallback' in v)) return;
+		let cancelled = false;
+		let handle = 0;
+		const onFrame = (_now: number, meta: { mediaTime: number }) => {
+			if (cancelled) return;
+			const local = (meta.mediaTime - clip.inPoint) / (clip.speed || 1);
+			editor.reportFrameTime(clip.start + local);
+			handle = v.requestVideoFrameCallback(onFrame);
+		};
+		handle = v.requestVideoFrameCallback(onFrame);
+		return () => {
+			cancelled = true;
+			v.cancelVideoFrameCallback?.(handle);
+		};
+	});
 
 	// Layout shared by the video and the scrub overlay.
 	const boxStyle = $derived(

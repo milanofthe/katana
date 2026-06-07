@@ -30,7 +30,12 @@ export const PLAYER = {
 	 * Re-seek the <video> only when the playhead diverges by more than this many
 	 * seconds. Prevents a feedback loop between timeupdate -> playhead -> seek.
 	 */
-	seekThresholdSec: 0.25
+	seekThresholdSec: 0.25,
+	/**
+	 * If no video frame has driven the clock within this many ms, the wall-clock
+	 * takes over (gaps / audio-only / stalled decode).
+	 */
+	frameLockStaleMs: 120
 } as const;
 
 export const SEEK = {
