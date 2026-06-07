@@ -1,4 +1,5 @@
 mod export;
+mod project;
 mod thumbnails;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -8,7 +9,9 @@ pub fn run() {
     .plugin(tauri_plugin_shell::init())
     .invoke_handler(tauri::generate_handler![
       export::export_video,
-      thumbnails::extract_thumbnails
+      thumbnails::extract_thumbnails,
+      project::save_project,
+      project::load_project
     ])
     .setup(|app| {
       if cfg!(debug_assertions) {

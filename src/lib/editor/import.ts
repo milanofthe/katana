@@ -51,7 +51,7 @@ function probeVideoMeta(src: string): Promise<VideoMeta> {
 }
 
 /** Pull filmstrip frames from the ffmpeg sidecar and attach them to the clip. */
-async function extractThumbs(id: string, path: string, duration: number): Promise<void> {
+export async function extractThumbs(id: string, path: string, duration: number): Promise<void> {
 	try {
 		const thumbs = await invoke<string[]>('extract_thumbnails', {
 			path,

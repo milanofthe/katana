@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { editor } from '$lib/editor/store.svelte';
 	import { importMedia } from '$lib/editor/import';
+	import { saveProject, openProject } from '$lib/editor/project';
 	import { TIMELINE } from '$lib/constants';
 
 	interface Command {
@@ -18,6 +19,14 @@
 
 	const commands = $derived<Command[]>([
 		{ id: 'import', title: 'Import media…', run: () => importMedia() },
+		{ id: 'open', title: 'Open project…', hint: 'Ctrl+O', run: () => openProject() },
+		{
+			id: 'save',
+			title: 'Save project…',
+			hint: 'Ctrl+S',
+			disabled: editor.clips.length === 0,
+			run: () => saveProject()
+		},
 		{
 			id: 'export',
 			title: 'Export video…',

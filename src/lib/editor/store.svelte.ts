@@ -308,6 +308,19 @@ class EditorStore {
 		if (this.selectedId) this.removeClip(this.selectedId);
 	}
 
+	/** Replace the whole document with a loaded project. Clears history + caches;
+	 * the caller regenerates thumbnails/waveforms from each clip's path. */
+	loadProject(clips: Clip[], aspectRatio: AspectRatio) {
+		this.pause();
+		this.clips = clips;
+		this.aspectRatio = aspectRatio;
+		this.selectedId = clips[0]?.id ?? null;
+		this.playhead = 0;
+		this.waveforms = {};
+		this.undoStack = [];
+		this.redoStack = [];
+	}
+
 	/** Select a clip; leaves the master playhead and playback untouched. */
 	select(id: string | null) {
 		this.selectedId = id;

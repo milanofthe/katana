@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { Icon, Button, Logo } from '$lib';
+	import { Icon, Button, IconButton, Tooltip, Logo } from '$lib';
 	import { importMedia } from '$lib/editor/import';
+	import { saveProject, openProject } from '$lib/editor/project';
 	import { editor } from '$lib/editor/store.svelte';
 </script>
 
@@ -10,6 +11,19 @@
 	</div>
 
 	<div class="actions">
+		<Tooltip text="Open project (Ctrl+O)" placement="bottom">
+			<IconButton icon="folder" label="Open project" size="md" onclick={openProject} />
+		</Tooltip>
+		<Tooltip text="Save project (Ctrl+S)" placement="bottom">
+			<IconButton
+				icon="save"
+				label="Save project"
+				size="md"
+				disabled={editor.clips.length === 0}
+				onclick={saveProject}
+			/>
+		</Tooltip>
+		<span class="sep" aria-hidden="true"></span>
 		<Button variant="secondary" onclick={importMedia} disabled={editor.importing > 0}>
 			<Icon name="import" />{editor.importing > 0 ? 'Importing…' : 'Import'}
 		</Button>
@@ -44,5 +58,11 @@
 		display: flex;
 		align-items: center;
 		gap: var(--katana-space-2);
+	}
+	.sep {
+		width: var(--katana-border-width);
+		height: var(--katana-control-sm);
+		background: var(--katana-border);
+		margin-inline: var(--katana-space-1);
 	}
 </style>

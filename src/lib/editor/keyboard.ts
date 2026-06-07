@@ -1,6 +1,7 @@
 // Global editor keyboard shortcuts. Wired via <svelte:window onkeydown> on the
 // editor page. Modifier combinations (Ctrl/Cmd/Alt) are left to the OS/browser.
 import { editor } from './store.svelte';
+import { saveProject, openProject } from './project';
 import { SEEK } from '$lib/constants';
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -24,6 +25,16 @@ export function handleEditorKeydown(e: KeyboardEvent): void {
 		if (k === 'y') {
 			e.preventDefault();
 			editor.redo();
+			return;
+		}
+		if (k === 's') {
+			e.preventDefault();
+			void saveProject();
+			return;
+		}
+		if (k === 'o') {
+			e.preventDefault();
+			void openProject();
 			return;
 		}
 	}
