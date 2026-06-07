@@ -92,8 +92,8 @@
 			</div>
 		{:else}
 			<div class="empty-state">
-				<Icon name="film" size={48} />
-				<p class="empty-text">No media. Import a video to begin.</p>
+				<Icon name="import" size={20} />
+				<span>Import or drop a video to start editing</span>
 			</div>
 		{/if}
 	</div>
@@ -219,20 +219,13 @@
 		transform: translateY(-50%);
 	}
 
+	/* Matches the timeline empty state: a centered icon + prompt row. */
 	.empty-state {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: var(--katana-space-4);
-		color: var(--katana-text-muted);
-	}
-
-	.empty-text {
-		font-family: var(--katana-font-sans);
+		gap: var(--katana-space-2);
 		font-size: var(--katana-text-sm);
-		font-weight: var(--katana-weight-regular);
 		color: var(--katana-text-muted);
-		margin: 0;
 	}
 </style>
