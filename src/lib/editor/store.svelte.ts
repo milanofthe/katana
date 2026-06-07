@@ -154,6 +154,24 @@ class EditorStore {
 		this.audioTracks = this.audioLaneCount + 1;
 	}
 
+	/** Remove an empty lane; lanes above it slide down to close the gap. No-op if occupied. */
+	removeVideoTrack(track: number) {
+		this.removeTrack('video', track);
+	}
+	removeAudioTrack(track: number) {
+		this.removeTrack('audio', track);
+	}
+	private removeTrack(kind: ClipKind, track: number) {
+		if (this.clips.some((c) => c.kind === kind && c.track === track)) return;
+		const above = this.clips.filter((c) => c.kind === kind && c.track > track);
+		if (above.length) {
+			this.recordBefore();
+			for (const c of above) c.track -= 1;
+		}
+		if (kind === 'video') this.videoTracks = Math.max(0, this.videoLaneCount - 1);
+		else this.audioTracks = Math.max(0, this.audioLaneCount - 1);
+	}
+
 	/** Interval index over clip [start, end); rebuilt only when clips change. */
 	private clipIndex = $derived(
 		new IntervalIndex(this.clips.map((c) => ({ start: c.start, end: clipEnd(c), clip: c })))

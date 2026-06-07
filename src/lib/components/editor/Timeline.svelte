@@ -382,8 +382,22 @@
 					{#if 'divider' in lane}
 						<div class="section-divider"></div>
 					{:else}
+						{@const laneClips = clipsForLane(lane.kind, lane.track)}
 						<div class="lane" class:audio-lane={lane.kind === 'audio'}>
-							{#each clipsForLane(lane.kind, lane.track) as p (p.clip.id)}
+							{#if laneClips.length === 0}
+								<div class="lane-empty">
+									<IconButton
+										icon="trash"
+										label="Remove empty track"
+										size="sm"
+										onclick={() =>
+											lane.kind === 'video'
+												? editor.removeVideoTrack(lane.track)
+												: editor.removeAudioTrack(lane.track)}
+									/>
+								</div>
+							{/if}
+							{#each laneClips as p (p.clip.id)}
 							<div
 								class="clip"
 								class:selected={p.clip.id === editor.selectedId}
@@ -561,12 +575,26 @@
 	/* Track lanes */
 	.lane {
 		position: relative;
+		display: flex;
+		align-items: center;
 		height: var(--katana-timeline-track-height);
 		border-bottom: var(--katana-border-width) solid var(--katana-border);
 	}
 	/* Audio lanes are tinted to read as a separate section. */
 	.audio-lane {
 		background: var(--katana-bg-surface);
+	}
+	/* Delete control for an empty lane: pinned to the left of the viewport (the
+	   lane spans the whole timeline width) and revealed on hover. */
+	.lane-empty {
+		position: sticky;
+		left: var(--katana-space-2);
+		z-index: 1;
+		opacity: 0;
+		transition: opacity var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.lane:hover .lane-empty {
+		opacity: 1;
 	}
 	/* Divider between the video and audio sections. */
 	.section-divider {
