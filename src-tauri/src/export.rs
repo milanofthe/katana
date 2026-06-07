@@ -234,7 +234,8 @@ fn build_args(
 	let base = if has_video { "bg" } else { "outv" };
 	chains.push(format!("color=c=black:s={cw}x{ch}:r=30:d={total:.6}[{base}]"));
 
-	// Per-clip video: speed, time-shift to start, scale to placement size.
+	// Per-clip video: speed, time-shift to start, scale to placement size, and
+	// optional visual fade in/out (alpha so it blends with the layers below).
 	let places: Vec<(i64, i64, i64, i64)> = clips.iter().map(|c| placement(cw, ch, c)).collect();
 	for (i, c) in clips.iter().enumerate() {
 		if !c.is_video() {
@@ -242,10 +243,25 @@ fn build_args(
 		}
 		let speed = c.speed.max(0.01);
 		let (dw, dh, _, _) = places[i];
-		chains.push(format!(
-			"[{i}:v]setpts=(PTS-STARTPTS)/{speed:.6}+{start:.6}/TB,scale={dw}:{dh},setsar=1[v{i}]",
+		let mut chain = format!(
+			"[{i}:v]setpts=(PTS-STARTPTS)/{speed:.6}+{start:.6}/TB,scale={dw}:{dh},setsar=1",
 			start = c.start
-		));
+		);
+		if c.fade_in > 0.0 || c.fade_out > 0.0 {
+			chain.push_str(",format=yuva420p");
+			if c.fade_in > 0.0 {
+				chain.push_str(&format!(
+					",fade=t=in:st={:.6}:d={:.4}:alpha=1",
+					c.start, c.fade_in
+				));
+			}
+			if c.fade_out > 0.0 {
+				let st = (c.timeline_end() - c.fade_out).max(0.0);
+				chain.push_str(&format!(",fade=t=out:st={st:.6}:d={:.4}:alpha=1", c.fade_out));
+			}
+		}
+		chain.push_str(&format!("[v{i}]"));
+		chains.push(chain);
 	}
 
 	// Overlay chain in z-order (video clips only); each composites in its window.

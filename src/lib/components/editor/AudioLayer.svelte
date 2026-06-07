@@ -50,7 +50,8 @@
 		const a = audio;
 		if (!a) return;
 		const target = clip.inPoint + editor.localTime(clip) * clip.speed;
-		if (Math.abs(a.currentTime - target) <= PLAYER.seekThresholdSec) return;
+		const threshold = editor.playing ? PLAYER.seekThresholdSec : 0.001;
+		if (Math.abs(a.currentTime - target) <= threshold) return;
 		cancelAnimationFrame(seekRaf);
 		seekRaf = requestAnimationFrame(() => {
 			a.currentTime = target;

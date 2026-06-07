@@ -155,7 +155,10 @@
 		if (!v) return;
 		// Active layers track the playhead; look-ahead layers park at the in-point.
 		const target = clipSourceTime(clip, active ? editor.localTime(clip) : 0);
-		if (Math.abs(v.currentTime - target) <= PLAYER.seekThresholdSec) return;
+		// While paused, seek precisely so the preview reflects every timeline edit;
+		// while playing, tolerate small drift to avoid fighting native playback.
+		const threshold = editor.playing ? PLAYER.seekThresholdSec : 0.001;
+		if (Math.abs(v.currentTime - target) <= threshold) return;
 		cancelAnimationFrame(seekRaf);
 		seekRaf = requestAnimationFrame(() => {
 			v.currentTime = target;
@@ -201,6 +204,19 @@
 			? clip.thumbnails[clipFrameIndex(clip, editor.localTime(clip))]
 			: undefined
 	);
+
+	// Visual fade: ramp the layer's opacity so it fades in/out (revealing the
+	// layers below, or the black canvas). Mirrors the audio fade above.
+	const fadeOpacity = $derived.by(() => {
+		if (clip.fadeInSec === 0 && clip.fadeOutSec === 0) return 1;
+		const dur = clipDuration(clip);
+		const t = editor.localTime(clip);
+		let o = 1;
+		if (clip.fadeInSec > 0 && t < clip.fadeInSec) o = t / clip.fadeInSec;
+		if (clip.fadeOutSec > 0 && t > dur - clip.fadeOutSec)
+			o = Math.min(o, (dur - t) / clip.fadeOutSec);
+		return Math.max(0, Math.min(1, o));
+	});
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -- viewport canvas; keyboard handled via shortcuts -->
@@ -213,7 +229,7 @@
 	class:dragging
 	class:hidden={!active}
 	preload="metadata"
-	style={boxStyle}
+	style="{boxStyle};opacity:{fadeOpacity}"
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
@@ -222,7 +238,7 @@
 	onloadedmetadata={onLoadedMeta}
 ></video>
 {#if scrubFrame}
-	<img class="scrub-frame" src={scrubFrame} alt="" style={boxStyle} />
+	<img class="scrub-frame" src={scrubFrame} alt="" style="{boxStyle};opacity:{fadeOpacity}" />
 {/if}
 
 <style>

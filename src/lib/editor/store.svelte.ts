@@ -501,6 +501,20 @@ class EditorStore {
 		c.fadeOutSec = clamp(seconds, 0, clipDuration(c));
 	}
 
+	/** Set a specific clip's fade in/out (used by the timeline fade handles). */
+	setFadeInFor(id: string, seconds: number) {
+		const c = this.clips.find((x) => x.id === id);
+		if (!c) return;
+		this.recordBefore();
+		c.fadeInSec = clamp(seconds, 0, clipDuration(c));
+	}
+	setFadeOutFor(id: string, seconds: number) {
+		const c = this.clips.find((x) => x.id === id);
+		if (!c) return;
+		this.recordBefore();
+		c.fadeOutSec = clamp(seconds, 0, clipDuration(c));
+	}
+
 	setSpeed(v: number) {
 		const c = this.selectedClip;
 		if (!c) return;

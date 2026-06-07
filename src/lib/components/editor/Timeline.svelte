@@ -339,6 +339,42 @@
 		window.addEventListener('pointerup', onUp);
 	}
 
+	// Drag a fade handle (top corner) to set fade in/out duration.
+	function startFadeDrag(e: PointerEvent, clipId: string, edge: 'in' | 'out') {
+		e.preventDefault();
+		e.stopPropagation();
+		editor.select(clipId);
+		const clip = editor.clips.find((c) => c.id === clipId);
+		if (!clip) return;
+		const startX = e.clientX;
+		const startVal = edge === 'in' ? clip.fadeInSec : clip.fadeOutSec;
+		editor.beginTransaction();
+		let raf = 0;
+		const onMove = (ev: PointerEvent) => {
+			const x = ev.clientX;
+			cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(() => {
+				// Fade in grows rightward; fade out grows leftward.
+				const delta = ((x - startX) / editor.pxPerSec) * (edge === 'in' ? 1 : -1);
+				if (edge === 'in') editor.setFadeInFor(clipId, startVal + delta);
+				else editor.setFadeOutFor(clipId, startVal + delta);
+			});
+		};
+		const onUp = () => {
+			cancelAnimationFrame(raf);
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+			editor.endTransaction();
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+	}
+
+	// Fade region width in px, clamped to the clip width.
+	function fadePx(sec: number, widthPx: number): number {
+		return Math.max(0, Math.min(widthPx, sec * editor.pxPerSec));
+	}
+
 	// Plain wheel scrolls horizontally; Ctrl/Cmd+wheel zooms. Non-passive so
 	// preventDefault works.
 	function wheelZoomScroll(node: HTMLElement) {
@@ -464,6 +500,31 @@
 										onpointerdown={(e) => startTrim(e, p.clip.id, 'end', p.clip.inPoint, p.clip.outPoint, p.clip.speed)}
 									></div>
 								{/if}
+
+								<!-- Fade ramps (visual) + draggable corner handles -->
+								{#if p.clip.fadeInSec > 0}
+									<div class="fade-tri fade-in" style="width: {fadePx(p.clip.fadeInSec, p.width)}px"></div>
+								{/if}
+								{#if p.clip.fadeOutSec > 0}
+									<div class="fade-tri fade-out" style="width: {fadePx(p.clip.fadeOutSec, p.width)}px"></div>
+								{/if}
+								{#if p.width >= TIMELINE.minTrimWidthPx}
+									<!-- svelte-ignore a11y_no_static_element_interactions -- pointer fade handle -->
+									<div
+										class="fade-handle fade-in-h"
+										style="left: {fadePx(p.clip.fadeInSec, p.width)}px"
+										title="Fade in"
+										onpointerdown={(e) => startFadeDrag(e, p.clip.id, 'in')}
+									></div>
+									<!-- svelte-ignore a11y_no_static_element_interactions -- pointer fade handle -->
+									<div
+										class="fade-handle fade-out-h"
+										style="right: {fadePx(p.clip.fadeOutSec, p.width)}px"
+										title="Fade out"
+										onpointerdown={(e) => startFadeDrag(e, p.clip.id, 'out')}
+									></div>
+								{/if}
+
 								<div class="clip-actions">
 									<IconButton icon="trash" label="Remove clip" size="sm" onclick={() => editor.removeClip(p.clip.id)} />
 								</div>
@@ -727,6 +788,48 @@
 	}
 	.trim-handle:hover {
 		background: var(--katana-accent);
+	}
+
+	/* Fade ramp overlays (visual): a dimmed triangle over the fade region. */
+	.fade-tri {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		z-index: 2;
+		pointer-events: none;
+		background: var(--katana-scrim);
+	}
+	.fade-tri.fade-in {
+		left: 0;
+		clip-path: polygon(0 0, 0 100%, 100% 0);
+	}
+	.fade-tri.fade-out {
+		right: 0;
+		clip-path: polygon(100% 0, 100% 100%, 0 0);
+	}
+
+	/* Fade handles: small draggable dots at the top corners, shown on hover. */
+	.fade-handle {
+		position: absolute;
+		top: var(--katana-space-1);
+		width: var(--katana-space-3);
+		height: var(--katana-space-3);
+		border-radius: var(--katana-radius-full);
+		background: var(--katana-accent);
+		border: var(--katana-border-width) solid var(--katana-accent-contrast);
+		cursor: ew-resize;
+		z-index: 4;
+		opacity: 0;
+		transition: opacity var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.fade-in-h {
+		transform: translateX(-50%);
+	}
+	.fade-out-h {
+		transform: translateX(50%);
+	}
+	.clip:hover .fade-handle {
+		opacity: 1;
 	}
 
 	/* Per-clip action buttons, revealed on hover */
