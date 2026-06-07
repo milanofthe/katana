@@ -8,8 +8,27 @@
 	const duration = $derived(clip ? clipDuration(clip) : 0);
 </script>
 
-<aside class="props">
-	{#if clip}
+{#if editor.propsCollapsed}
+	<aside class="props-rail">
+		<IconButton
+			icon="chevronLeft"
+			label="Show properties"
+			size="sm"
+			onclick={() => editor.togglePropsCollapsed()}
+		/>
+	</aside>
+{:else}
+	<aside class="props" style="width: {editor.propsWidth}px">
+		<header class="panel-head">
+			<h2 class="panel-title">Properties</h2>
+			<IconButton
+				icon="chevronRight"
+				label="Hide properties"
+				size="sm"
+				onclick={() => editor.togglePropsCollapsed()}
+			/>
+		</header>
+		{#if clip}
 		<section class="group">
 			<h3 class="title">Speed</h3>
 			<div class="row">
@@ -127,15 +146,15 @@
 				<dd class="snip-mono">{formatTimecode(duration)}</dd>
 			</dl>
 		</section>
-	{:else}
-		<p class="empty">Select a clip to edit its properties.</p>
-	{/if}
-</aside>
+		{:else}
+			<p class="empty">Select a clip to edit its properties.</p>
+		{/if}
+	</aside>
+{/if}
 
 <style>
 	.props {
 		flex: none;
-		width: 16rem;
 		display: flex;
 		flex-direction: column;
 		gap: var(--katana-space-5);
@@ -143,6 +162,28 @@
 		background: var(--katana-bg-surface);
 		border-left: var(--katana-border-width) solid var(--katana-border);
 		overflow-y: auto;
+	}
+
+	/* Collapsed: a thin rail with just an expand button. */
+	.props-rail {
+		flex: none;
+		display: flex;
+		justify-content: center;
+		padding-top: var(--katana-space-2);
+		background: var(--katana-bg-surface);
+		border-left: var(--katana-border-width) solid var(--katana-border);
+	}
+
+	.panel-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: calc(var(--katana-space-1) * -1);
+	}
+	.panel-title {
+		font-size: var(--katana-text-sm);
+		font-weight: var(--katana-weight-semibold);
+		color: var(--katana-text-primary);
 	}
 
 	.group {

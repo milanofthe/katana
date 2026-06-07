@@ -439,17 +439,19 @@
 	.timeline {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		min-height: 0;
 		background: var(--katana-bg-base);
 		border-top: var(--katana-border-width) solid var(--katana-border);
-		flex-shrink: 0;
 		user-select: none;
 	}
 
 	.tl-scroll {
 		position: relative;
+		flex: 1;
+		min-height: 0;
 		overflow-x: auto;
 		overflow-y: auto;
-		max-height: 16rem;
 		/* Scrollbar styling is global (see app.css). */
 	}
 

@@ -69,6 +69,19 @@ export const HISTORY = {
 	wheelCommitMs: 300
 } as const;
 
+export const LAYOUT = {
+	/** Properties sidebar width (px) and drag bounds. */
+	propsWidthDefault: 256,
+	propsWidthMin: 200,
+	propsWidthMax: 480,
+	/** Timeline height (px) and drag bounds. */
+	timelineHeightDefault: 220,
+	timelineHeightMin: 120,
+	timelineHeightMax: 560,
+	/** Splitter thickness (px). */
+	splitterPx: 6
+} as const;
+
 export const WAVEFORM = {
 	/** Peak buckets sampled per source for the timeline waveform. */
 	resolution: 1200,

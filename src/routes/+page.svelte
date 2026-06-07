@@ -33,6 +33,34 @@
 		const t = setTimeout(() => (editor.notice = null), 4000);
 		return () => clearTimeout(t);
 	});
+
+	// Drag the divider to resize the properties sidebar (drag left = wider).
+	function startPropsResize(e: PointerEvent) {
+		e.preventDefault();
+		const startX = e.clientX;
+		const startW = editor.propsWidth;
+		const onMove = (ev: PointerEvent) => editor.setPropsWidth(startW + (startX - ev.clientX));
+		const onUp = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+	}
+
+	// Drag the divider to resize the timeline height (drag up = taller).
+	function startTimelineResize(e: PointerEvent) {
+		e.preventDefault();
+		const startY = e.clientY;
+		const startH = editor.timelineHeight;
+		const onMove = (ev: PointerEvent) => editor.setTimelineHeight(startH + (startY - ev.clientY));
+		const onUp = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+	}
 </script>
 
 <svelte:window onkeydown={handleEditorKeydown} />
@@ -41,10 +69,30 @@
 	<TopBar />
 	<div class="stage-row">
 		<PreviewPane />
+		{#if !editor.propsCollapsed}
+			<!-- svelte-ignore a11y_no_static_element_interactions -- pointer resize handle -->
+			<div
+				class="v-splitter"
+				role="separator"
+				aria-orientation="vertical"
+				onpointerdown={startPropsResize}
+			></div>
+		{/if}
 		<PropertiesPanel />
 	</div>
 	<TransportBar />
-	<Timeline />
+	{#if !editor.timelineCollapsed}
+		<!-- svelte-ignore a11y_no_static_element_interactions -- pointer resize handle -->
+		<div
+			class="h-splitter"
+			role="separator"
+			aria-orientation="horizontal"
+			onpointerdown={startTimelineResize}
+		></div>
+		<div class="timeline-wrap" style="height: {editor.timelineHeight}px">
+			<Timeline />
+		</div>
+	{/if}
 
 	{#if editor.dropActive}
 		<div class="drop-overlay">
@@ -77,6 +125,36 @@
 		display: flex;
 		flex: 1;
 		min-height: 0;
+	}
+
+	/* Resize handles between panels. Invisible until hovered/dragged. */
+	.v-splitter {
+		flex: none;
+		width: var(--katana-space-2);
+		margin-inline: calc(var(--katana-space-2) / -2);
+		cursor: col-resize;
+		background: transparent;
+		z-index: var(--katana-z-timeline);
+		transition: background var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.h-splitter {
+		flex: none;
+		height: var(--katana-space-2);
+		margin-block: calc(var(--katana-space-2) / -2);
+		cursor: row-resize;
+		background: transparent;
+		z-index: var(--katana-z-timeline);
+		transition: background var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.v-splitter:hover,
+	.h-splitter:hover {
+		background: var(--katana-accent);
+	}
+
+	.timeline-wrap {
+		flex: none;
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.drop-overlay {

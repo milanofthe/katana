@@ -6,7 +6,7 @@
 // (seconds) and a `track` (z-order lane, higher = rendered on top). Clips may
 // overlap in time; the master playhead drives a single clock and every visible
 // clip syncs its <video> to it.
-import { TIMELINE, CLIP, HISTORY } from '$lib/constants';
+import { TIMELINE, CLIP, HISTORY, LAYOUT } from '$lib/constants';
 
 export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
 
@@ -101,6 +101,12 @@ class EditorStore {
 	aspectRatio = $state<AspectRatio>('original');
 	/** Peak data per source path for the timeline waveform (not undoable). */
 	waveforms = $state<Record<string, number[]>>({});
+
+	// ── UI layout (resizable / collapsible panels; not undoable) ─
+	propsWidth = $state<number>(LAYOUT.propsWidthDefault);
+	propsCollapsed = $state(false);
+	timelineHeight = $state<number>(LAYOUT.timelineHeightDefault);
+	timelineCollapsed = $state(false);
 
 	/** Project length: the latest clip end across all tracks. */
 	totalDuration = $derived(this.clips.reduce((max, c) => Math.max(max, clipEnd(c)), 0));
@@ -408,6 +414,20 @@ class EditorStore {
 
 	notify(text: string, kind: 'ok' | 'error' = 'ok') {
 		this.notice = { text, kind };
+	}
+
+	// ── Layout setters ──────────────────────────────────────────
+	setPropsWidth(px: number) {
+		this.propsWidth = clamp(px, LAYOUT.propsWidthMin, LAYOUT.propsWidthMax);
+	}
+	togglePropsCollapsed() {
+		this.propsCollapsed = !this.propsCollapsed;
+	}
+	setTimelineHeight(px: number) {
+		this.timelineHeight = clamp(px, LAYOUT.timelineHeightMin, LAYOUT.timelineHeightMax);
+	}
+	toggleTimelineCollapsed() {
+		this.timelineCollapsed = !this.timelineCollapsed;
 	}
 
 	/** Store extracted waveform peaks for a source path (keyed by clip.path). */
