@@ -348,8 +348,99 @@ fn build_args(
 	(args, total)
 }
 
+/// Probe a single stream's codec name (e.g. "h264", "aac"); None if absent.
+async fn probe_codec(app: &AppHandle, path: &str, stream: &str) -> Option<String> {
+	let cmd = app.shell().sidecar("ffprobe").ok()?;
+	let args = [
+		"-v", "error", "-select_streams", stream, "-show_entries", "stream=codec_name", "-of",
+		"csv=p=0", path,
+	];
+	let out = cmd.args(args).output().await.ok()?;
+	if !out.status.success() {
+		return None;
+	}
+	let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+	if s.is_empty() {
+		None
+	} else {
+		Some(s)
+	}
+}
+
+/// Structural eligibility for a lossless stream copy: a single, untouched,
+/// timeline-origin video clip exported at source size/format. Returns the clip.
+fn copy_candidate<'a>(
+	clips: &'a [ExportClip],
+	aspect: &str,
+	settings: &ExportSettings,
+) -> Option<&'a ExportClip> {
+	if settings.format == "gif" || settings.resolution != "source" || aspect != "original" {
+		return None;
+	}
+	if clips.len() != 1 {
+		return None;
+	}
+	let c = &clips[0];
+	let eps = 1e-6;
+	if !c.is_video()
+		|| c.muted
+		|| c.start.abs() > eps
+		|| (c.speed - 1.0).abs() > eps
+		|| (c.volume - 1.0).abs() > eps
+		|| c.fade_in > eps
+		|| c.fade_out > eps
+		|| c.x.abs() > eps
+		|| c.y.abs() > eps
+		|| (c.scale - 1.0).abs() > eps
+	{
+		return None;
+	}
+	Some(c)
+}
+
+/// Can the source streams be copied (not re-encoded) into the chosen format?
+fn copy_compatible(format: &str, vcodec: &str, acodec: Option<&str>) -> bool {
+	let audio_ok = |allowed: &[&str]| acodec.map_or(true, |a| allowed.contains(&a));
+	match format {
+		"mp4-h264" | "mov-h264" => vcodec == "h264" && audio_ok(&["aac", "mp3"]),
+		"mp4-h265" => vcodec == "hevc" && audio_ok(&["aac", "mp3"]),
+		"webm-vp9" => (vcodec == "vp9" || vcodec == "vp8") && audio_ok(&["opus", "vorbis"]),
+		_ => false,
+	}
+}
+
+/// Lossless stream-copy args: trim with `-c copy`, no re-encode.
+fn build_copy_args(c: &ExportClip, format: &str, output: &str) -> (Vec<String>, f64) {
+	let span = c.source_span();
+	let mut args: Vec<String> = vec![
+		"-y".into(),
+		"-ss".into(),
+		format!("{:.6}", c.in_point),
+		"-i".into(),
+		c.path.clone(),
+		"-t".into(),
+		format!("{span:.6}"),
+		"-map".into(),
+		"0:v:0".into(),
+		"-map".into(),
+		"0:a:0?".into(),
+		"-c".into(),
+		"copy".into(),
+		"-avoid_negative_ts".into(),
+		"make_zero".into(),
+	];
+	if matches!(format, "mp4-h264" | "mp4-h265" | "mov-h264") {
+		args.push("-movflags".into());
+		args.push("+faststart".into());
+	}
+	args.extend(["-progress", "pipe:1", "-nostats"].iter().map(|s| s.to_string()));
+	args.push(output.to_string());
+	(args, span)
+}
+
 /// Render the timeline to a single output file, emitting `export:progress`
-/// (0..1) as it runs. ffmpeg/ffprobe are bundled sidecars.
+/// (0..1) as it runs. Uses a lossless stream copy when the timeline is a single
+/// untouched trim; otherwise the full compositing re-encode. Sidecars from bundle.
 #[tauri::command]
 pub async fn export_video(
 	app: AppHandle,
@@ -360,6 +451,18 @@ pub async fn export_video(
 ) -> Result<(), String> {
 	if clips.is_empty() {
 		return Err("Nothing to export: the timeline is empty.".into());
+	}
+
+	// Lossless stream-copy fastpath (single trimmed clip, compatible codecs).
+	if let Some(c) = copy_candidate(&clips, &aspect, &settings) {
+		let vcodec = probe_codec(&app, &c.path, "v:0").await;
+		let acodec = probe_codec(&app, &c.path, "a:0").await;
+		if let Some(vc) = vcodec.as_deref() {
+			if copy_compatible(&settings.format, vc, acodec.as_deref()) {
+				let (args, total) = build_copy_args(c, &settings.format, &output);
+				return run_ffmpeg(app, args, total).await;
+			}
+		}
 	}
 
 	// Composite bottom-to-top: video clips only, lower track first, ties by start.
@@ -385,6 +488,11 @@ pub async fn export_video(
 	let (args, total) =
 		build_args(&clips, &order, &aspect, &settings, &audio_flags, base_dims, &output);
 
+	run_ffmpeg(app, args, total).await
+}
+
+/// Spawn the bundled ffmpeg sidecar with the given args and stream progress.
+async fn run_ffmpeg(app: AppHandle, args: Vec<String>, total: f64) -> Result<(), String> {
 	let cmd = app
 		.shell()
 		.sidecar("ffmpeg")
