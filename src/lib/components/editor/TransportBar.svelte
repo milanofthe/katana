@@ -80,20 +80,6 @@
 			<IconButton icon="magnet" label="Snapping" size="md" active={editor.snapping} onclick={() => editor.toggleSnap()} />
 		</Tooltip>
 	</div>
-
-	<span class="divider" aria-hidden="true"></span>
-
-	<!-- Timeline collapse toggle -->
-	<div class="group">
-		<Tooltip text={editor.timelineCollapsed ? 'Show timeline' : 'Hide timeline'} placement="top">
-			<IconButton
-				icon={editor.timelineCollapsed ? 'chevronUp' : 'chevronDown'}
-				label={editor.timelineCollapsed ? 'Show timeline' : 'Hide timeline'}
-				size="md"
-				onclick={() => editor.toggleTimelineCollapsed()}
-			/>
-		</Tooltip>
-	</div>
 </div>
 
 <style>

@@ -7,6 +7,7 @@
 // overlap in time; the master playhead drives a single clock and every visible
 // clip syncs its <video> to it.
 import { TIMELINE, CLIP, HISTORY, LAYOUT } from '$lib/constants';
+import { IntervalIndex } from './intervals';
 
 export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
 
@@ -127,10 +128,17 @@ class EditorStore {
 		return tracks.length ? Math.max(...tracks) + 1 : 0;
 	}
 
-	/** All clips active at the playhead, ordered base-first (track ascending). */
+	/** Interval index over clip [start, end); rebuilt only when clips change. */
+	private clipIndex = $derived(
+		new IntervalIndex(this.clips.map((c) => ({ start: c.start, end: clipEnd(c), clip: c })))
+	);
+
+	/** All clips active at the playhead, ordered base-first (track ascending).
+	 * O(log n + k) per frame via the interval index, not a full filter+sort. */
 	activeClips = $derived(
-		this.clips
-			.filter((c) => this.playhead >= c.start && this.playhead < clipEnd(c))
+		this.clipIndex
+			.query(this.playhead)
+			.map((e) => e.clip)
 			.sort((a, b) => a.track - b.track || a.start - b.start)
 	);
 	/** Active video clips, base-first (for the compositing viewport). */

@@ -16,12 +16,6 @@
 	<aside class="props" style="width: {editor.propsWidth}px">
 		<header class="panel-head">
 			<h2 class="panel-title">Properties</h2>
-			<IconButton
-				icon="chevronRight"
-				label="Hide properties"
-				size="sm"
-				onclick={() => editor.togglePropsCollapsed()}
-			/>
 		</header>
 		{#if clip}
 		<section class="group">
