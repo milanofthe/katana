@@ -28,7 +28,7 @@ jobs:
             args: --bundles deb,appimage
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Tauri 2 Linux toolchain (WebKitGTK 4.1, app indicator, rsvg, patchelf).
       - name: Install Linux dependencies
@@ -43,7 +43,7 @@ jobs:
             patchelf \
             file
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 
