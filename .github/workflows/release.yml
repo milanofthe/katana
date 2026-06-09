@@ -1,0 +1,84 @@
+name: Release
+
+# Build the desktop app for Windows and Linux and attach the installers to a
+# GitHub Release. Releases are cut by pushing a version tag (e.g. `v1.0.2`);
+# the build can also be run manually via the Actions tab to verify the bundles
+# (manual runs upload the installers as workflow artifacts but do not publish a
+# release).
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            ffmpeg: pwsh -File scripts/fetch-ffmpeg.ps1
+            args: ''
+          - platform: ubuntu-22.04
+            ffmpeg: bash scripts/fetch-ffmpeg.sh
+            # AppImage (portable) + .deb (Debian/Ubuntu). No rpmbuild needed.
+            args: --bundles deb,appimage
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri 2 Linux toolchain (WebKitGTK 4.1, app indicator, rsvg, patchelf).
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            patchelf \
+            file
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      # Sidecars are fetched per-platform (not committed) so the bundle ships a
+      # self-contained ffmpeg/ffprobe. See scripts/fetch-ffmpeg.{ps1,sh}.
+      - name: Fetch FFmpeg sidecars
+        run: ${{ matrix.ffmpeg }}
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Only publish a release on a tag push; manual runs just build.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: Katana ${{ github.ref_name }}
+          releaseBody: Download the installer for your platform from the assets below.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      # Keep the installers reachable on manual / non-tag runs too.
+      - name: Upload installers as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: katana-${{ matrix.platform }}
+          path: src-tauri/target/release/bundle/
+          if-no-files-found: ignore

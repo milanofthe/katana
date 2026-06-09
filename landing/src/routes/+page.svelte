@@ -31,8 +31,8 @@
 		}
 	];
 
-	// Honest, code-backed comparison. Katana does not win every row (it is Windows
-	// only today): credibility matters more than a clean sweep.
+	// Honest, code-backed comparison. Katana now ships cross platform (Windows and
+	// Linux); macOS is not built yet, so the row reads as a partial win.
 	const rivals = ['Katana', 'Clipchamp', 'OpenShot', 'Shotcut'];
 	const compareRows = [
 		{ label: 'Open source', cells: [true, false, true, true] },
@@ -42,7 +42,7 @@
 		{ label: 'Multitrack compositing', cells: [true, true, true, true] },
 		{ label: 'Lossless stream-copy export', cells: [true, false, false, false] },
 		{ label: 'Works fully offline', cells: [true, false, true, true] },
-		{ label: 'Cross platform', cells: [false, false, true, true] }
+		{ label: 'Cross platform', cells: [true, false, true, true] }
 	];
 
 	const faqs = [
@@ -56,7 +56,7 @@
 		},
 		{
 			q: 'Which platforms does Katana run on?',
-			a: 'Katana ships for Windows (64 bit) today. It is built on Tauri, so support for other platforms is possible down the line.'
+			a: 'Katana ships for Windows and Linux (64 bit): an NSIS or MSI installer on Windows, an AppImage or .deb package on Linux. It is built on Tauri, so a macOS build is possible down the line.'
 		},
 		{
 			q: 'Is Katana a good Clipchamp alternative?',
@@ -94,12 +94,12 @@
 <div class="page">
 	<section class="hero">
 		<h1 class="hero-logo">
-			<span class="sr-only">Katana, a free and open source video editor for Windows</span>
+			<span class="sr-only">Katana, a free and open source video editor for Windows and Linux</span>
 			<Logo variant="full" />
 		</h1>
 		<p class="lead">
-			A free, open source video editor for Windows. Fast, minimalist and multitrack: compositing,
-			lossless export and a snappy UI, in a tiny native app.
+			A free, open source video editor for Windows and Linux. Fast, minimalist and multitrack:
+			compositing, lossless export and a snappy UI, in a tiny native app.
 		</p>
 		<div class="cta">
 			<Button variant="primary" size="lg" href={RELEASES} target="_blank">Download</Button>
@@ -175,8 +175,8 @@
 			</table>
 		</div>
 		<p class="cmp-note">
-			Comparison reflects each editor as of 2026. Katana is Windows only for now and proud of what it
-			does well: speed, a clean UI and lossless export.
+			Comparison reflects each editor as of 2026. Katana ships for Windows and Linux, and is proud
+			of what it does well: speed, a clean UI and lossless export.
 		</p>
 	</section>
 

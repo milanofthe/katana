@@ -46,9 +46,34 @@ Katana is a lightweight desktop video editor focused on the everyday cut: import
 - **Vanilla CSS** with a fully tokenized design system
 - **FFmpeg** sidecar for export (stream-copy first)
 
+## Platforms
+
+Katana ships for **Windows** (NSIS / MSI) and **Linux** (AppImage / `.deb`),
+64-bit. Grab the installer for your platform from the
+[latest release](https://github.com/milanofthe/katana/releases). Releases are
+built for both platforms in CI on every version tag.
+
 ## Development
 
 Requires Node, Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/).
+On Debian/Ubuntu the Tauri 2 system packages are:
+
+```sh
+sudo apt-get install libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+  librsvg2-dev libxdo-dev patchelf file
+```
+
+FFmpeg and ffprobe ship as bundled sidecars and are **not** committed (they are
+large). Fetch them once before the first `dev` / `build`:
+
+```sh
+# Windows (PowerShell)
+pwsh -File scripts/fetch-ffmpeg.ps1
+# Linux
+bash scripts/fetch-ffmpeg.sh
+```
+
+Then:
 
 ```sh
 npm install

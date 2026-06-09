@@ -76,7 +76,7 @@ def build():
     # Value proposition (the keyword-bearing line).
     lead = font("segoeuib.ttf", 46)
     draw.text((PAD, 372), "A free, open source video editor", font=lead, fill=PRIMARY)
-    draw.text((PAD, 430), "for Windows", font=lead, fill=PRIMARY)
+    draw.text((PAD, 430), "for Windows & Linux", font=lead, fill=PRIMARY)
 
     # Supporting attributes.
     sub = font("segoeui.ttf", 30)
