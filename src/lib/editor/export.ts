@@ -5,6 +5,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { editor } from './store.svelte';
+import { fontById } from '$lib/text/fonts';
 
 export interface ExportSettings {
 	/** Container + codec: "mp4-h264" | "mp4-h265" | "webm-vp9" | "mov-h264" | "gif". */
@@ -56,7 +57,20 @@ export async function runExport(settings: ExportSettings): Promise<void> {
 		x: c.transform.x,
 		y: c.transform.y,
 		scale: c.transform.scale,
-		aspectRatio: c.aspectRatio
+		aspectRatio: c.aspectRatio,
+		// Text overlays carry their styling; the font id maps to a bundled TTF the
+		// Rust exporter resolves to a resource path for drawtext.
+		text: c.text
+			? {
+					content: c.text.content,
+					fontFile: fontById(c.text.fontId).file,
+					sizePct: c.text.sizePct,
+					color: c.text.color,
+					align: c.text.align,
+					outline: c.text.outline,
+					outlineColor: c.text.outlineColor
+				}
+			: undefined
 	}));
 
 	editor.exporting = true;

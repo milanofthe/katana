@@ -3,7 +3,8 @@
 // its transform, time-shifted to its start and overlaid (z-ordered by track)
 // onto a black canvas; audio is delayed and mixed. Progress streams back to the
 // UI. FFmpeg/ffprobe ship as bundled sidecars (see scripts/fetch-ffmpeg.ps1).
-use tauri::{AppHandle, Emitter};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
@@ -30,6 +31,34 @@ pub struct ExportClip {
 	scale: f64,
 	/// Source aspect ratio (width / height).
 	aspect_ratio: f64,
+	/// Text styling; present only on `kind: "text"` clips.
+	#[serde(default)]
+	text: Option<ExportText>,
+}
+
+/// Text-overlay styling carried on a text clip (mirrors the frontend TextStyle).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportText {
+	content: String,
+	/// Bundled TTF filename (resolved to a resource path by the exporter).
+	font_file: String,
+	/// Font size as a percentage of the output frame height.
+	size_pct: f64,
+	/// Fill colour, hex #RRGGBB.
+	color: String,
+	/// "left" | "center" | "right".
+	align: String,
+	/// Outline width as a percentage of font size (0 = none).
+	outline: f64,
+	outline_color: String,
+}
+
+/// Resolved per-clip assets for a text overlay: a temp file holding the raw text
+/// (sidesteps drawtext escaping) and the resolved bundled font path.
+struct TextAsset {
+	textfile: String,
+	fontfile: String,
 }
 
 /// Output choices from the export dialog.
@@ -59,6 +88,9 @@ impl ExportClip {
 	}
 	fn is_video(&self) -> bool {
 		self.kind == "video"
+	}
+	fn is_text(&self) -> bool {
+		self.kind == "text"
 	}
 }
 
@@ -197,8 +229,82 @@ fn placement(cw: i64, ch: i64, c: &ExportClip) -> (i64, i64, i64, i64) {
 	(dw, dh, ox, oy)
 }
 
+/// Single-quote a path for the filtergraph (forward slashes; protects ':' and
+/// spaces). Temp/resource paths won't contain single quotes.
+fn ff_path(p: &str) -> String {
+	format!("'{}'", p.replace('\\', "/"))
+}
+
+/// Hex #RRGGBB -> ffmpeg 0xRRGGBB (falls back to white if malformed).
+fn ff_color(hex: &str) -> String {
+	let h = hex.trim_start_matches('#');
+	if h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit()) {
+		format!("0x{h}")
+	} else {
+		"white".into()
+	}
+}
+
+/// A `drawtext` filter for one text overlay: positioned + sized like the preview
+/// (size = % of frame height × transform scale; align + center offset), with an
+/// optional outline and a time-driven alpha ramp for fades. Returns `null` (a
+/// pass-through) if the clip carries no text or its font/text files are missing.
+fn drawtext_filter(c: &ExportClip, cw: i64, ch: i64, asset: Option<&TextAsset>) -> String {
+	let (t, asset) = match (&c.text, asset) {
+		(Some(t), Some(a)) => (t, a),
+		_ => return "null".into(),
+	};
+	let fs = ((t.size_pct / 100.0) * ch as f64 * c.scale).round().max(1.0) as i64;
+	let ox = (c.x * cw as f64).round() as i64;
+	let oy = (c.y * ch as f64).round() as i64;
+	let xexpr = match t.align.as_str() {
+		"left" => format!("({ox})"),
+		"right" => format!("w-text_w+({ox})"),
+		_ => format!("(w-text_w)/2+({ox})"),
+	};
+	let yexpr = format!("(h-text_h)/2+({oy})");
+
+	let mut parts = vec![
+		format!("drawtext=fontfile={}", ff_path(&asset.fontfile)),
+		format!("textfile={}", ff_path(&asset.textfile)),
+		format!("fontsize={fs}"),
+		format!("fontcolor={}", ff_color(&t.color)),
+		format!("x={xexpr}"),
+		format!("y={yexpr}"),
+		"expansion=none".into(),
+	];
+
+	let bw = ((t.outline / 100.0) * fs as f64).round() as i64;
+	if bw > 0 {
+		parts.push(format!("borderw={bw}"));
+		parts.push(format!("bordercolor={}", ff_color(&t.outline_color)));
+	}
+
+	// Fade in/out via a piecewise alpha ramp (gated to the clip window by enable).
+	let (s, e, fin, fout) = (c.start, c.timeline_end(), c.fade_in, c.fade_out);
+	let alpha = if fin > 0.0 && fout > 0.0 {
+		Some(format!(
+			"if(lt(t,{a:.6}),(t-{s:.6})/{fin:.4},if(gt(t,{b:.6}),({e:.6}-t)/{fout:.4},1))",
+			a = s + fin,
+			b = e - fout
+		))
+	} else if fin > 0.0 {
+		Some(format!("if(lt(t,{a:.6}),(t-{s:.6})/{fin:.4},1)", a = s + fin))
+	} else if fout > 0.0 {
+		Some(format!("if(gt(t,{b:.6}),({e:.6}-t)/{fout:.4},1)", b = e - fout))
+	} else {
+		None
+	};
+	if let Some(a) = alpha {
+		parts.push(format!("alpha='{a}'"));
+	}
+
+	parts.push(format!("enable='between(t,{s:.6},{e:.6})'"));
+	parts.join(":")
+}
+
 /// Build the ffmpeg argument vector. Pure: all probing is done by the caller and
-/// passed in via `order`, `audio_flags` and `base_dims`. Returns (args, total).
+/// passed in via `order`, `audio_flags`, `base_dims` and `text_assets`.
 fn build_args(
 	clips: &[ExportClip],
 	order: &[usize],
@@ -206,6 +312,7 @@ fn build_args(
 	settings: &ExportSettings,
 	audio_flags: &[bool],
 	base_dims: Option<(u32, u32)>,
+	text_assets: &[Option<TextAsset>],
 	output: &str,
 ) -> (Vec<String>, f64) {
 	let total: f64 = clips.iter().map(|c| c.timeline_end()).fold(0.0, f64::max);
@@ -215,23 +322,43 @@ fn build_args(
 	let is_gif = settings.format == "gif";
 
 	let mut args: Vec<String> = vec!["-y".into()];
-	// Trimmed inputs (indices 0..N), one per clip.
-	for c in clips {
+	// Trimmed inputs, one per media clip. Text clips carry no input stream, so
+	// input indices are decoupled from clip indices via this map.
+	let mut input_index: Vec<Option<usize>> = vec![None; clips.len()];
+	let mut ii = 0usize;
+	for (i, c) in clips.iter().enumerate() {
+		if c.is_text() {
+			continue;
+		}
 		args.push("-ss".into());
 		args.push(format!("{:.6}", c.in_point));
 		args.push("-t".into());
 		args.push(format!("{:.6}", c.source_span()));
 		args.push("-i".into());
 		args.push(c.path.clone());
+		input_index[i] = Some(ii);
+		ii += 1;
 	}
 
 	// Filtergraph assembled as discrete chains, joined by ';'.
 	let mut chains: Vec<String> = Vec::new();
 
-	// Black base canvas spanning the whole timeline. With no video clips the base
-	// itself is the output video (audio-only export = black frame + audio).
+	// Text overlays draw on top of the composited video, in z-order (track asc).
+	let mut text_order: Vec<usize> = (0..clips.len()).filter(|&i| clips[i].is_text()).collect();
+	text_order.sort_by(|&a, &b| {
+		clips[a].track.cmp(&clips[b].track).then(
+			clips[a]
+				.start
+				.partial_cmp(&clips[b].start)
+				.unwrap_or(std::cmp::Ordering::Equal),
+		)
+	});
+	let has_text = !text_order.is_empty();
+
+	// Black base canvas spanning the whole timeline. With no video and no text the
+	// base itself is the output (audio-only export = black frame + audio).
 	let has_video = !order.is_empty();
-	let base = if has_video { "bg" } else { "outv" };
+	let base = if has_video || has_text { "bg" } else { "outv" };
 	chains.push(format!("color=c=black:s={cw}x{ch}:r=30:d={total:.6}[{base}]"));
 
 	// Per-clip video: speed, time-shift to start, scale to placement size, and
@@ -243,8 +370,9 @@ fn build_args(
 		}
 		let speed = c.speed.max(0.01);
 		let (dw, dh, _, _) = places[i];
+		let src = input_index[i].unwrap_or(0);
 		let mut chain = format!(
-			"[{i}:v]setpts=(PTS-STARTPTS)/{speed:.6}+{start:.6}/TB,scale={dw}:{dh},setsar=1",
+			"[{src}:v]setpts=(PTS-STARTPTS)/{speed:.6}+{start:.6}/TB,scale={dw}:{dh},setsar=1",
 			start = c.start
 		);
 		if c.fade_in > 0.0 || c.fade_out > 0.0 {
@@ -265,21 +393,44 @@ fn build_args(
 	}
 
 	// Overlay chain in z-order (video clips only); each composites in its window.
-	let mut last = "bg".to_string();
-	for (k, &i) in order.iter().enumerate() {
-		let c = &clips[i];
-		let (_, _, ox, oy) = places[i];
-		let out_label = if k == order.len() - 1 {
-			"outv".to_string()
-		} else {
-			format!("ov{i}")
-		};
-		chains.push(format!(
-			"[{last}][v{i}]overlay=x={ox}:y={oy}:eof_action=pass:enable='between(t,{s:.6},{e:.6})'[{out_label}]",
-			s = c.start,
-			e = c.timeline_end()
-		));
-		last = out_label;
+	// The composited video lands on `outv`, unless text follows (then `vcomp`).
+	let video_out = if has_video {
+		let mut last = "bg".to_string();
+		for (k, &i) in order.iter().enumerate() {
+			let c = &clips[i];
+			let (_, _, ox, oy) = places[i];
+			let out_label = if k == order.len() - 1 {
+				if has_text { "vcomp".to_string() } else { "outv".to_string() }
+			} else {
+				format!("ov{i}")
+			};
+			chains.push(format!(
+				"[{last}][v{i}]overlay=x={ox}:y={oy}:eof_action=pass:enable='between(t,{s:.6},{e:.6})'[{out_label}]",
+				s = c.start,
+				e = c.timeline_end()
+			));
+			last = out_label;
+		}
+		last
+	} else {
+		// No video: text (if any) draws straight onto the black base canvas.
+		"bg".to_string()
+	};
+
+	// Text overlays: a drawtext per clip, chained in z-order, producing `outv`.
+	if has_text {
+		let mut last = video_out;
+		for (j, &i) in text_order.iter().enumerate() {
+			let c = &clips[i];
+			let out_label = if j == text_order.len() - 1 {
+				"outv".to_string()
+			} else {
+				format!("tx{i}")
+			};
+			let dt = drawtext_filter(c, cw, ch, text_assets[i].as_ref());
+			chains.push(format!("[{last}]{dt}[{out_label}]"));
+			last = out_label;
+		}
 	}
 
 	// Audio (skipped for GIF). Per-clip: speed, volume, fade, delay to start;
@@ -291,8 +442,9 @@ fn build_args(
 				continue;
 			}
 			let speed = c.speed.max(0.01);
+			let src = input_index[i].unwrap_or(0);
 			let mut chain = format!(
-				"[{i}:a]asetpts=PTS-STARTPTS,{},volume={:.4}",
+				"[{src}:a]asetpts=PTS-STARTPTS,{},volume={:.4}",
 				atempo_chain(speed),
 				c.volume
 			);
@@ -490,10 +642,14 @@ pub async fn export_video(
 			.then(clips[a].start.partial_cmp(&clips[b].start).unwrap_or(std::cmp::Ordering::Equal))
 	});
 
-	// Probe up front (async) so build_args stays pure.
+	// Probe up front (async) so build_args stays pure. Text clips have no media.
 	let mut audio_flags: Vec<bool> = Vec::with_capacity(clips.len());
 	for c in &clips {
-		audio_flags.push(probe_has_audio(&app, &c.path).await);
+		audio_flags.push(if c.is_text() {
+			false
+		} else {
+			probe_has_audio(&app, &c.path).await
+		});
 	}
 	let base_dims = if format_dims(&aspect).is_none() && !order.is_empty() {
 		probe_dims(&app, &clips[order[0]].path).await
@@ -501,10 +657,56 @@ pub async fn export_video(
 		None
 	};
 
-	let (args, total) =
-		build_args(&clips, &order, &aspect, &settings, &audio_flags, base_dims, &output);
+	// Resolve text-overlay assets: the bundled font path + a temp file holding the
+	// raw text (so drawtext needs no escaping). Cleaned up after the run.
+	let stamp = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.map(|d| d.as_nanos())
+		.unwrap_or(0);
+	let tmp = std::env::temp_dir();
+	let mut text_assets: Vec<Option<TextAsset>> = Vec::with_capacity(clips.len());
+	let mut text_tempfiles: Vec<std::path::PathBuf> = Vec::new();
+	for (i, c) in clips.iter().enumerate() {
+		let asset = match &c.text {
+			Some(t) => {
+				let fontfile = app
+					.path()
+					.resolve(format!("fonts/{}", t.font_file), tauri::path::BaseDirectory::Resource)
+					.ok()
+					.map(|p| p.to_string_lossy().to_string());
+				let txt_path = tmp.join(format!("katana-text-{stamp}-{i}.txt"));
+				let textfile = std::fs::write(&txt_path, &t.content)
+					.ok()
+					.map(|_| txt_path.to_string_lossy().to_string());
+				match (fontfile, textfile) {
+					(Some(ff), Some(tf)) => {
+						text_tempfiles.push(txt_path);
+						Some(TextAsset { textfile: tf, fontfile: ff })
+					}
+					_ => None,
+				}
+			}
+			None => None,
+		};
+		text_assets.push(asset);
+	}
 
-	run_ffmpeg(app, args, total).await
+	let (args, total) = build_args(
+		&clips,
+		&order,
+		&aspect,
+		&settings,
+		&audio_flags,
+		base_dims,
+		&text_assets,
+		&output,
+	);
+
+	let result = run_ffmpeg(app, args, total).await;
+	for p in &text_tempfiles {
+		let _ = std::fs::remove_file(p);
+	}
+	result
 }
 
 /// Spawn the bundled ffmpeg sidecar with the given args and stream progress.
