@@ -36,6 +36,17 @@ interface VideoMeta {
 	aspectRatio: number;
 }
 
+/** Probe a video's frame rate via the ffprobe sidecar (clamped; 30 fallback). */
+async function probeFps(path: string): Promise<number> {
+	try {
+		const fps = await invoke<number | null>('probe_fps', { path });
+		if (fps && fps > 0) return Math.min(240, Math.max(1, fps));
+	} catch {
+		// Fall through to the default.
+	}
+	return 30;
+}
+
 /** Read duration + aspect ratio via a metadata-only <video> load (no decode). */
 function probeVideoMeta(src: string): Promise<VideoMeta> {
 	return new Promise((resolve) => {
@@ -92,6 +103,7 @@ export async function importPaths(paths: string[]): Promise<void> {
 					inPoint: 0,
 					outPoint: duration,
 					aspectRatio: 1,
+					fps: 0,
 					thumbnails: [],
 					volume: 1,
 					muted: false,
@@ -101,7 +113,10 @@ export async function importPaths(paths: string[]): Promise<void> {
 					transform: { x: 0, y: 0, scale: 1 }
 				});
 			} else {
-				const { duration, aspectRatio } = await probeVideoMeta(src);
+				const [{ duration, aspectRatio }, fps] = await Promise.all([
+					probeVideoMeta(src),
+					probeFps(path)
+				]);
 				const id = crypto.randomUUID();
 				editor.addClip({
 					id,
@@ -113,6 +128,7 @@ export async function importPaths(paths: string[]): Promise<void> {
 					inPoint: 0,
 					outPoint: duration,
 					aspectRatio,
+					fps,
 					thumbnails: [],
 					volume: 1,
 					muted: false,

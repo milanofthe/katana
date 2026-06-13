@@ -9,6 +9,7 @@ pub fn run() {
     .plugin(tauri_plugin_shell::init())
     .invoke_handler(tauri::generate_handler![
       export::export_video,
+      export::probe_fps,
       thumbnails::extract_thumbnails,
       project::save_project,
       project::load_project

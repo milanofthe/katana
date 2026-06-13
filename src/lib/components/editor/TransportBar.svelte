@@ -8,6 +8,7 @@
 	const hasClips = $derived(editor.clips.length > 0);
 	const currentTime = $derived(formatTimecode(editor.playhead));
 	const duration = $derived(formatTimecode(editor.totalDuration));
+	const fps = $derived(Number(editor.projectFps.toFixed(2)));
 
 	function deleteSelected() {
 		if (editor.selectedId) editor.removeClip(editor.selectedId);
@@ -47,6 +48,10 @@
 		<span class="time-separator">&nbsp;/&nbsp;</span>
 		<span class="time-duration">{duration}</span>
 	</div>
+
+	<Tooltip text="Project frame rate (fastest clip)" placement="top">
+		<span class="fps">{fps} fps</span>
+	</Tooltip>
 
 	<div class="spacer" aria-hidden="true"></div>
 
@@ -137,6 +142,15 @@
 	.time-separator,
 	.time-duration {
 		color: var(--katana-text-muted);
+	}
+
+	.fps {
+		font-family: var(--katana-font-mono);
+		font-size: var(--katana-text-xs);
+		font-variant-numeric: tabular-nums;
+		color: var(--katana-text-muted);
+		user-select: none;
+		white-space: nowrap;
 	}
 
 	.spacer {

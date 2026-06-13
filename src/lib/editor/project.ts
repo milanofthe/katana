@@ -27,6 +27,7 @@ interface SavedClip {
 	start: number;
 	track: number;
 	aspectRatio: number;
+	fps: number;
 	volume: number;
 	muted: boolean;
 	fadeInSec: number;
@@ -54,6 +55,7 @@ function toSaved(c: Clip): SavedClip {
 		start: c.start,
 		track: c.track,
 		aspectRatio: c.aspectRatio,
+		fps: c.fps,
 		volume: c.volume,
 		muted: c.muted,
 		fadeInSec: c.fadeInSec,
@@ -83,6 +85,7 @@ function fromSaved(s: SavedClip): Clip {
 		start: s.start ?? 0,
 		track: s.track ?? 0,
 		aspectRatio: s.aspectRatio || 16 / 9,
+		fps: s.fps ?? (isText ? 0 : 30),
 		thumbnails: [],
 		volume: s.volume ?? 1,
 		muted: !!s.muted,

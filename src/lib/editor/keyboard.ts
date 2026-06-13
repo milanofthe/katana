@@ -48,11 +48,14 @@ export function handleEditorKeydown(e: KeyboardEvent): void {
 			break;
 		case 'ArrowLeft':
 			e.preventDefault();
-			editor.stepBy(e.shiftKey ? -SEEK.bigStepSec : -SEEK.stepSec);
+			// One frame; Shift = one second.
+			if (e.shiftKey) editor.stepBy(-SEEK.stepSec);
+			else editor.stepByFrames(-1);
 			break;
 		case 'ArrowRight':
 			e.preventDefault();
-			editor.stepBy(e.shiftKey ? SEEK.bigStepSec : SEEK.stepSec);
+			if (e.shiftKey) editor.stepBy(SEEK.stepSec);
+			else editor.stepByFrames(1);
 			break;
 		case 'ArrowUp':
 			e.preventDefault();

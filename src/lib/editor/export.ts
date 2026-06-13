@@ -80,7 +80,13 @@ export async function runExport(settings: ExportSettings): Promise<void> {
 		editor.exportProgress = e.payload;
 	});
 	try {
-		await invoke('export_video', { clips, aspect: editor.aspectRatio, settings, output });
+		await invoke('export_video', {
+			clips,
+			aspect: editor.aspectRatio,
+			settings,
+			fps: editor.projectFps,
+			output
+		});
 		editor.notify('Export complete', 'ok');
 	} catch (e) {
 		editor.notify(String(e), 'error');

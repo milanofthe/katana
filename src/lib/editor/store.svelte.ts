@@ -64,6 +64,8 @@ export interface Clip {
 	track: number;
 	/** Source aspect ratio (width / height) for AR-correct filmstrip frames. */
 	aspectRatio: number;
+	/** Source frame rate (fps); 0 for audio/text. Drives the project frame rate. */
+	fps: number;
 	/** Preview frames captured evenly across the source (filmstrip thumbnails). */
 	thumbnails: string[];
 	/** Audio level 0..1. */
@@ -171,6 +173,13 @@ class EditorStore {
 
 	/** Project length: the latest clip end across all tracks. */
 	totalDuration = $derived(this.clips.reduce((max, c) => Math.max(max, clipEnd(c)), 0));
+
+	/** Project frame rate: the fastest video clip's fps (others are frame-held to
+	 * it). Falls back to the default when there is no probed video. */
+	projectFps = $derived.by(() => {
+		const rates = this.clips.filter((c) => c.kind === 'video' && c.fps > 0).map((c) => c.fps);
+		return rates.length ? Math.max(...rates) : PLAYER.fps;
+	});
 	selectedClip = $derived(this.clips.find((c) => c.id === this.selectedId) ?? null);
 
 	private trackCountFor(kind: ClipKind): number {
@@ -384,6 +393,7 @@ class EditorStore {
 			start,
 			track: 0,
 			aspectRatio: 16 / 9,
+			fps: 0,
 			thumbnails: [],
 			volume: 0,
 			muted: true,
@@ -535,7 +545,7 @@ class EditorStore {
 	 * Pauses first so the exact frame is shown (precise paused seek). */
 	stepByFrames(frames: number) {
 		this.pause();
-		const fps = PLAYER.fps;
+		const fps = this.projectFps;
 		const f = Math.round(this.playhead * fps);
 		this.seek((f + frames) / fps);
 	}

@@ -199,6 +199,32 @@ async fn probe_dims(app: &AppHandle, path: &str) -> Option<(u32, u32)> {
 	}
 }
 
+/// Parse an ffprobe rational ("30000/1001", "30/1") to fps; None if degenerate.
+fn parse_rational(s: &str) -> Option<f64> {
+	let mut it = s.trim().split('/');
+	let n: f64 = it.next()?.trim().parse().ok()?;
+	let d: f64 = it.next().map(|x| x.trim().parse().unwrap_or(1.0)).unwrap_or(1.0);
+	if n <= 0.0 || d <= 0.0 {
+		return None;
+	}
+	Some(n / d)
+}
+
+/// Probe a video's frame rate (fps) via the ffprobe sidecar. None if unknown.
+#[tauri::command]
+pub async fn probe_fps(app: AppHandle, path: String) -> Option<f64> {
+	let cmd = app.shell().sidecar("ffprobe").ok()?;
+	let args = [
+		"-v", "error", "-select_streams", "v:0", "-show_entries", "stream=avg_frame_rate", "-of",
+		"csv=p=0", &path,
+	];
+	let out = cmd.args(args).output().await.ok()?;
+	if !out.status.success() {
+		return None;
+	}
+	parse_rational(&String::from_utf8_lossy(&out.stdout))
+}
+
 /// Output canvas size: the chosen aspect format, or the probed base-clip size.
 fn canvas_dims(aspect: &str, base_dims: Option<(u32, u32)>) -> (i64, i64) {
 	if let Some((w, h)) = format_dims(aspect) {
@@ -313,9 +339,12 @@ fn build_args(
 	audio_flags: &[bool],
 	base_dims: Option<(u32, u32)>,
 	text_assets: &[Option<TextAsset>],
+	fps: f64,
 	output: &str,
 ) -> (Vec<String>, f64) {
 	let total: f64 = clips.iter().map(|c| c.timeline_end()).fold(0.0, f64::max);
+	// Project frame rate (fastest clip); slower clips are frame-held to it.
+	let fps = if (1.0..=240.0).contains(&fps) { fps } else { 30.0 };
 
 	let (cw, ch) = canvas_dims(aspect, base_dims);
 	let (cw, ch) = apply_resolution(cw, ch, &settings.resolution);
@@ -359,7 +388,7 @@ fn build_args(
 	// base itself is the output (audio-only export = black frame + audio).
 	let has_video = !order.is_empty();
 	let base = if has_video || has_text { "bg" } else { "outv" };
-	chains.push(format!("color=c=black:s={cw}x{ch}:r=30:d={total:.6}[{base}]"));
+	chains.push(format!("color=c=black:s={cw}x{ch}:r={fps:.5}:d={total:.6}[{base}]"));
 
 	// Per-clip video: speed, time-shift to start, scale to placement size, and
 	// optional visual fade in/out (alpha so it blends with the layers below).
@@ -615,6 +644,7 @@ pub async fn export_video(
 	clips: Vec<ExportClip>,
 	aspect: String,
 	settings: ExportSettings,
+	fps: f64,
 	output: String,
 ) -> Result<(), String> {
 	if clips.is_empty() {
@@ -699,6 +729,7 @@ pub async fn export_video(
 		&audio_flags,
 		base_dims,
 		&text_assets,
+		fps,
 		&output,
 	);
 
