@@ -117,14 +117,20 @@
 		return Array.from({ length: Math.max(0, total) }, (_, i) => total - 1 - i);
 	}
 	const videoLanes = $derived(buildLanes('video'));
+	const textLanes = $derived(buildLanes('text'));
 	const audioLanes = $derived(buildLanes('audio'));
 
 	type LaneRow = { kind: ClipKind; track: number } | { divider: true };
-	// Video lanes, then (only if both sections exist) a divider and audio lanes.
+	// Sections top-to-bottom: video, text, audio. A divider precedes each section
+	// that follows another present section.
 	const lanes = $derived.by<LaneRow[]>(() => {
 		const out: LaneRow[] = videoLanes.map((track) => ({ kind: 'video' as const, track }));
+		if (textLanes.length) {
+			if (out.length) out.push({ divider: true });
+			for (const track of textLanes) out.push({ kind: 'text' as const, track });
+		}
 		if (audioLanes.length) {
-			if (videoLanes.length) out.push({ divider: true });
+			if (out.length) out.push({ divider: true });
 			for (const track of audioLanes) out.push({ kind: 'audio' as const, track });
 		}
 		return out;
@@ -246,7 +252,12 @@
 		const startTrack = clip.track;
 		const kind = clip.kind;
 		// Drag is confined to existing lanes of this section (use "+ track" to add).
-		const laneCount = kind === 'video' ? editor.videoLaneCount : editor.audioLaneCount;
+		const laneCount =
+			kind === 'video'
+				? editor.videoLaneCount
+				: kind === 'text'
+					? editor.textLaneCount
+					: editor.audioLaneCount;
 		// One lane's height (constant); used for stable vertical lane mapping.
 		const laneH = lanesEl?.querySelector('.lane')?.clientHeight || 64;
 		dragId = id;
@@ -393,7 +404,9 @@
 										onclick={() =>
 											lane.kind === 'video'
 												? editor.removeVideoTrack(lane.track)
-												: editor.removeAudioTrack(lane.track)}
+												: lane.kind === 'text'
+													? editor.removeTextTrack(lane.track)
+													: editor.removeAudioTrack(lane.track)}
 									/>
 								</div>
 							{/if}
@@ -423,10 +436,15 @@
 										class="clip-thumb"
 										class:empty={p.clip.kind === 'audio'
 											? !editor.waveforms[p.clip.path]
-											: p.clip.thumbnails.length === 0}
+											: p.clip.kind === 'text'
+												? true
+												: p.clip.thumbnails.length === 0}
+										class:text-clip={p.clip.kind === 'text'}
 										style="--ar: {p.clip.aspectRatio}"
 									>
-										{#if p.clip.kind === 'audio'}
+										{#if p.clip.kind === 'text'}
+											<Icon name="type" class="thumb-glyph" />
+										{:else if p.clip.kind === 'audio'}
 											{#if editor.waveforms[p.clip.path]}
 												<canvas
 													class="wave wave-full"
@@ -678,6 +696,14 @@
 	.clip-thumb.empty {
 		align-items: center;
 		justify-content: center;
+	}
+	/* Text overlays: accent-tinted body so they read distinctly from media clips. */
+	.clip-thumb.text-clip {
+		background-color: var(--katana-accent-muted);
+		color: var(--katana-accent);
+	}
+	.clip-thumb.text-clip :global(.thumb-glyph) {
+		opacity: 0.85;
 	}
 	.frame {
 		height: 100%;
