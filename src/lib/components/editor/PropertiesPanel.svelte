@@ -1,11 +1,23 @@
 <script lang="ts">
-	import { Slider, IconButton, Icon } from '$lib';
-	import { editor, clipDuration } from '$lib/editor/store.svelte';
-	import { CLIP, VIEWPORT } from '$lib/constants';
+	import { Slider, IconButton, Icon, ColorPicker } from '$lib';
+	import { editor, clipDuration, type TextAlign } from '$lib/editor/store.svelte';
+	import { CLIP, VIEWPORT, TEXT } from '$lib/constants';
+	import { FONTS } from '$lib/text/fonts';
 	import { formatTimecode } from '$lib/editor/time';
 
 	const clip = $derived(editor.selectedClip);
 	const duration = $derived(clip ? clipDuration(clip) : 0);
+
+	const ALIGNS: { value: TextAlign; label: string }[] = [
+		{ value: 'left', label: 'Left' },
+		{ value: 'center', label: 'Center' },
+		{ value: 'right', label: 'Right' }
+	];
+	const WEIGHTS = [
+		{ value: 400, label: 'Regular' },
+		{ value: 600, label: 'Medium' },
+		{ value: 700, label: 'Bold' }
+	];
 </script>
 
 {#if editor.propsCollapsed}
@@ -16,8 +28,12 @@
 	<aside class="props" style="width: {editor.propsWidth}px">
 		<header class="props-header">
 			{#if clip}
-				<span class="kind-badge" class:audio={clip.kind === 'audio'}>
-					{clip.kind === 'audio' ? 'Audio' : 'Video'}
+				<span
+					class="kind-badge"
+					class:audio={clip.kind === 'audio'}
+					class:text={clip.kind === 'text'}
+				>
+					{clip.kind === 'audio' ? 'Audio' : clip.kind === 'text' ? 'Text' : 'Video'}
 				</span>
 				<span class="clip-name" title={clip.name}>{clip.name}</span>
 				<span class="clip-dur snip-mono">{formatTimecode(duration)}</span>
@@ -28,26 +44,195 @@
 
 		{#if clip}
 			<div class="sections">
-				<section class="card">
-					<div class="card-head">
-						<span class="card-title">Speed</span>
-					</div>
-					<div class="row">
-						<Slider
-							value={clip.speed}
-							min={CLIP.minSpeed}
-							max={CLIP.maxSpeed}
-							step={0.05}
-							label="Playback speed"
-							oninput={(v) => {
-								editor.beginTransaction();
-								editor.setSpeed(v);
-							}}
-							onchange={() => editor.endTransaction()}
-						/>
-						<span class="value snip-mono">{clip.speed.toFixed(2)}×</span>
-					</div>
-				</section>
+				{#if clip.kind === 'text' && clip.text}
+					<section class="card">
+						<div class="card-head">
+							<span class="card-title">Text</span>
+							<IconButton
+								icon="reset"
+								label="Reset placement"
+								size="sm"
+								onclick={() => editor.resetTransform(clip.id)}
+							/>
+						</div>
+						<textarea
+							class="text-input"
+							value={clip.text.content}
+							rows="2"
+							aria-label="Text content"
+							spellcheck="false"
+							onfocus={() => editor.beginTransaction()}
+							oninput={(e) => editor.setTextContent(e.currentTarget.value)}
+							onblur={() => editor.endTransaction()}
+						></textarea>
+
+						<div class="row">
+							<span class="row-label">Font</span>
+							<select
+								class="select"
+								aria-label="Font"
+								value={clip.text.fontId}
+								onchange={(e) => editor.setTextStyle({ fontId: e.currentTarget.value })}
+							>
+								{#each FONTS as f (f.id)}
+									<option value={f.id} style="font-family:{f.cssFamily}">{f.label}</option>
+								{/each}
+							</select>
+						</div>
+
+						<div class="row">
+							<span class="row-label">Size</span>
+							<Slider
+								value={clip.text.sizePct}
+								min={TEXT.minSizePct}
+								max={TEXT.maxSizePct}
+								step={0.5}
+								label="Font size"
+								oninput={(v) => {
+									editor.beginTransaction();
+									editor.setTextStyle({ sizePct: v });
+								}}
+								onchange={() => editor.endTransaction()}
+							/>
+							<span class="value snip-mono">{Math.round(clip.text.sizePct)}%</span>
+						</div>
+
+						<div class="row">
+							<span class="row-label">Color</span>
+							<div class="grow">
+								<ColorPicker
+									value={clip.text.color}
+									label="Text colour"
+									oninput={(hex) => {
+										editor.beginTransaction();
+										editor.setTextStyle({ color: hex });
+									}}
+									onchange={() => editor.endTransaction()}
+								/>
+							</div>
+						</div>
+
+						<div class="row">
+							<span class="row-label">Align</span>
+							<div class="segmented">
+								{#each ALIGNS as a (a.value)}
+									<button
+										class="seg"
+										class:active={clip.text.align === a.value}
+										onclick={() => editor.setTextStyle({ align: a.value })}>{a.label}</button
+									>
+								{/each}
+							</div>
+						</div>
+
+						<div class="row">
+							<span class="row-label">Weight</span>
+							<div class="segmented">
+								{#each WEIGHTS as w (w.value)}
+									<button
+										class="seg"
+										class:active={clip.text.weight === w.value}
+										onclick={() => editor.setTextStyle({ weight: w.value })}>{w.label}</button
+									>
+								{/each}
+							</div>
+						</div>
+
+						<div class="row">
+							<span class="row-label">Outline</span>
+							<Slider
+								value={clip.text.outline}
+								min={0}
+								max={TEXT.maxOutlinePct}
+								step={0.5}
+								label="Outline width"
+								oninput={(v) => {
+									editor.beginTransaction();
+									editor.setTextStyle({ outline: v });
+								}}
+								onchange={() => editor.endTransaction()}
+							/>
+							<span class="value snip-mono">{Math.round(clip.text.outline)}%</span>
+						</div>
+						{#if clip.text.outline > 0}
+							<div class="row">
+								<span class="row-label">Stroke</span>
+								<div class="grow">
+									<ColorPicker
+										value={clip.text.outlineColor}
+										label="Outline colour"
+										oninput={(hex) => {
+											editor.beginTransaction();
+											editor.setTextStyle({ outlineColor: hex });
+										}}
+										onchange={() => editor.endTransaction()}
+									/>
+								</div>
+							</div>
+						{/if}
+					</section>
+
+					<section class="card">
+						<div class="card-head">
+							<span class="card-title">Fades</span>
+						</div>
+						<div class="row">
+							<span class="row-label">Fade in</span>
+							<Slider
+								value={clip.fadeInSec}
+								min={0}
+								max={duration}
+								step={0.1}
+								label="Fade in"
+								oninput={(v) => {
+									editor.beginTransaction();
+									editor.setFadeIn(v);
+								}}
+								onchange={() => editor.endTransaction()}
+							/>
+							<span class="value snip-mono">{clip.fadeInSec.toFixed(1)}s</span>
+						</div>
+						<div class="row">
+							<span class="row-label">Fade out</span>
+							<Slider
+								value={clip.fadeOutSec}
+								min={0}
+								max={duration}
+								step={0.1}
+								label="Fade out"
+								oninput={(v) => {
+									editor.beginTransaction();
+									editor.setFadeOut(v);
+								}}
+								onchange={() => editor.endTransaction()}
+							/>
+							<span class="value snip-mono">{clip.fadeOutSec.toFixed(1)}s</span>
+						</div>
+					</section>
+				{/if}
+
+				{#if clip.kind !== 'text'}
+					<section class="card">
+						<div class="card-head">
+							<span class="card-title">Speed</span>
+						</div>
+						<div class="row">
+							<Slider
+								value={clip.speed}
+								min={CLIP.minSpeed}
+								max={CLIP.maxSpeed}
+								step={0.05}
+								label="Playback speed"
+								oninput={(v) => {
+									editor.beginTransaction();
+									editor.setSpeed(v);
+								}}
+								onchange={() => editor.endTransaction()}
+							/>
+							<span class="value snip-mono">{clip.speed.toFixed(2)}×</span>
+						</div>
+					</section>
+				{/if}
 
 				{#if clip.kind === 'video'}
 					<section class="card">
@@ -79,6 +264,7 @@
 					</section>
 				{/if}
 
+				{#if clip.kind !== 'text'}
 				<section class="card">
 					<div class="card-head">
 						<span class="card-title">Audio</span>
@@ -150,6 +336,7 @@
 						<span class="value snip-mono">{clip.fadeOutSec.toFixed(1)}s</span>
 					</div>
 				</section>
+				{/if}
 			</div>
 		{:else}
 			<div class="empty">
@@ -214,7 +401,8 @@
 		text-transform: uppercase;
 		letter-spacing: var(--katana-tracking-wide);
 	}
-	.kind-badge.audio {
+	.kind-badge.audio,
+	.kind-badge.text {
 		background: var(--katana-accent-muted);
 		color: var(--katana-accent);
 	}
@@ -284,6 +472,81 @@
 		width: 3.25rem;
 		font-size: var(--katana-text-xs);
 		color: var(--katana-text-muted);
+	}
+	/* Let a control (e.g. the colour picker) take the rest of the row. */
+	.grow {
+		flex: 1;
+		min-width: 0;
+	}
+
+	/* Multiline text content input. */
+	.text-input {
+		width: 100%;
+		resize: vertical;
+		min-height: var(--katana-control-lg);
+		padding: var(--katana-space-2);
+		border-radius: var(--katana-radius-sm);
+		background: var(--katana-bg-overlay);
+		border: var(--katana-border-width) solid var(--katana-border);
+		color: var(--katana-text-primary);
+		font-family: var(--katana-font-sans);
+		font-size: var(--katana-text-sm);
+		line-height: var(--katana-leading-normal);
+	}
+	.text-input:focus-visible {
+		outline: none;
+		border-color: var(--katana-accent);
+	}
+
+	/* Native select, tokenized. */
+	.select {
+		flex: 1;
+		min-width: 0;
+		height: var(--katana-control-sm);
+		padding: 0 var(--katana-space-2);
+		border-radius: var(--katana-radius-sm);
+		background: var(--katana-bg-overlay);
+		border: var(--katana-border-width) solid var(--katana-border);
+		color: var(--katana-text-primary);
+		font-size: var(--katana-text-xs);
+		cursor: pointer;
+	}
+	.select:focus-visible {
+		outline: none;
+		border-color: var(--katana-accent);
+	}
+
+	/* Compact segmented control (alignment / weight). */
+	.segmented {
+		display: flex;
+		flex: 1;
+		min-width: 0;
+		gap: var(--katana-space-1);
+	}
+	.seg {
+		flex: 1;
+		min-width: 0;
+		height: var(--katana-control-sm);
+		padding: 0 var(--katana-space-1);
+		border-radius: var(--katana-radius-sm);
+		background: var(--katana-bg-overlay);
+		border: var(--katana-border-width) solid var(--katana-border);
+		color: var(--katana-text-secondary);
+		font-size: var(--katana-text-xs);
+		font-weight: var(--katana-weight-medium);
+		cursor: pointer;
+		transition:
+			background var(--katana-duration-fast) var(--katana-ease-out),
+			color var(--katana-duration-fast) var(--katana-ease-out);
+	}
+	.seg:hover {
+		background: var(--katana-bg-elevated);
+		color: var(--katana-text-primary);
+	}
+	.seg.active {
+		background: var(--katana-accent);
+		border-color: var(--katana-accent);
+		color: var(--katana-accent-contrast);
 	}
 	.value {
 		flex: none;

@@ -64,6 +64,9 @@
 		<Tooltip text="Delete (Del)" placement="top">
 			<IconButton icon="trash" label="Delete clip" size="md" disabled={!hasClip} onclick={deleteSelected} />
 		</Tooltip>
+		<Tooltip text="Add text (T)" placement="top">
+			<IconButton icon="type" label="Add text overlay" size="md" onclick={() => editor.addText()} />
+		</Tooltip>
 	</div>
 
 	<span class="divider" aria-hidden="true"></span>

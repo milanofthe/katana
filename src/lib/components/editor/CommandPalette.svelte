@@ -19,6 +19,7 @@
 
 	const commands = $derived<Command[]>([
 		{ id: 'import', title: 'Import media…', run: () => importMedia() },
+		{ id: 'add-text', title: 'Add text overlay', hint: 'T', run: () => editor.addText() },
 		{ id: 'open', title: 'Open project…', hint: 'Ctrl+O', run: () => openProject() },
 		{
 			id: 'save',

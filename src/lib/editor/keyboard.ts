@@ -75,6 +75,11 @@ export function handleEditorKeydown(e: KeyboardEvent): void {
 			e.preventDefault();
 			editor.splitAtPlayhead();
 			break;
+		case 't':
+		case 'T':
+			e.preventDefault();
+			editor.addText();
+			break;
 		case 'Delete':
 		case 'Backspace':
 			e.preventDefault();
