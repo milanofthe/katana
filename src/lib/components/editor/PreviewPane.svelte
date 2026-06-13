@@ -2,6 +2,7 @@
 	import { Icon, IconButton } from '$lib';
 	import { editor, type AspectRatio } from '$lib/editor/store.svelte';
 	import CompositeLayer from './CompositeLayer.svelte';
+	import TextLayer from './TextLayer.svelte';
 	import AudioLayer from './AudioLayer.svelte';
 
 	const formats: { value: AspectRatio; label: string }[] = [
@@ -85,7 +86,20 @@
 					/>
 				{/each}
 
-				{#if editor.activeVideoClips.length === 0}
+				<!-- Text overlays composite on top of all video layers. -->
+				{#each editor.activeTextClips as clip (clip.id)}
+					<TextLayer
+						{clip}
+						{fw}
+						{fh}
+						active={true}
+						selected={clip.id === editor.selectedId}
+						onselect={(id) => editor.select(id)}
+						ondragstate={(s) => (guide = s)}
+					/>
+				{/each}
+
+				{#if editor.activeVideoClips.length === 0 && editor.activeTextClips.length === 0}
 					<span class="frame-empty">No clip at the playhead</span>
 				{/if}
 
