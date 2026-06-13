@@ -62,6 +62,16 @@ export function handleEditorKeydown(e: KeyboardEvent): void {
 			e.preventDefault();
 			editor.selectNext();
 			break;
+		case ',':
+		case '<':
+			e.preventDefault();
+			editor.stepByFrames(-1);
+			break;
+		case '.':
+		case '>':
+			e.preventDefault();
+			editor.stepByFrames(1);
+			break;
 		case 'Home':
 			e.preventDefault();
 			editor.seek(0);

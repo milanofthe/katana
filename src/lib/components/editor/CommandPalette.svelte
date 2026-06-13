@@ -71,6 +71,20 @@
 			run: () => editor.redo()
 		},
 		{
+			id: 'prev-frame',
+			title: 'Previous frame',
+			hint: ',',
+			disabled: editor.clips.length === 0,
+			run: () => editor.stepByFrames(-1)
+		},
+		{
+			id: 'next-frame',
+			title: 'Next frame',
+			hint: '.',
+			disabled: editor.clips.length === 0,
+			run: () => editor.stepByFrames(1)
+		},
+		{
 			id: 'start',
 			title: 'Go to start',
 			hint: 'Home',

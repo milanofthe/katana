@@ -531,6 +531,15 @@ class EditorStore {
 		this.seek(this.playhead + deltaSeconds);
 	}
 
+	/** Step the playhead by whole frames, snapped to the project frame grid.
+	 * Pauses first so the exact frame is shown (precise paused seek). */
+	stepByFrames(frames: number) {
+		this.pause();
+		const fps = PLAYER.fps;
+		const f = Math.round(this.playhead * fps);
+		this.seek((f + frames) / fps);
+	}
+
 	zoomBy(factor: number) {
 		this.pxPerSec = clamp(this.pxPerSec * factor, TIMELINE.minPxPerSec, TIMELINE.maxPxPerSec);
 	}

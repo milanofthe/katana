@@ -42,6 +42,11 @@ export const PLAYER = {
 	 */
 	lookaheadSec: 0.6,
 	/**
+	 * Project frame rate (fps). Matches the export base-canvas rate, so single-
+	 * frame stepping lands exactly on output frames.
+	 */
+	fps: 30,
+	/**
 	 * While scrubbing, the full-res <video> is re-seeked at most this often (ms)
 	 * so the decoder isn't choked, but the preview still sharpens continuously
 	 * (not only on release). The dense thumbnail LOD bridges the gaps between.

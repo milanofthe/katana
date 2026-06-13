@@ -20,6 +20,9 @@
 		<Tooltip text="To start" placement="top">
 			<IconButton icon="skipBack" label="To start" size="md" disabled={!hasClips} onclick={() => editor.seek(0)} />
 		</Tooltip>
+		<Tooltip text="Previous frame (,)" placement="top">
+			<IconButton icon="chevronLeft" label="Previous frame" size="md" disabled={!hasClips} onclick={() => editor.stepByFrames(-1)} />
+		</Tooltip>
 		<Tooltip text={editor.playing ? 'Pause' : 'Play'} placement="top">
 			<IconButton
 				icon={editor.playing ? 'pause' : 'play'}
@@ -29,6 +32,9 @@
 				disabled={!hasClips}
 				onclick={() => editor.togglePlay()}
 			/>
+		</Tooltip>
+		<Tooltip text="Next frame (.)" placement="top">
+			<IconButton icon="chevronRight" label="Next frame" size="md" disabled={!hasClips} onclick={() => editor.stepByFrames(1)} />
 		</Tooltip>
 		<Tooltip text="To end" placement="top">
 			<IconButton icon="skipForward" label="To end" size="md" disabled={!hasClips} onclick={() => editor.seek(editor.totalDuration)} />
