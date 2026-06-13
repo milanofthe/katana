@@ -6,7 +6,7 @@
 // (seconds) and a `track` (z-order lane, higher = rendered on top). Clips may
 // overlap in time; the master playhead drives a single clock and every visible
 // clip syncs its <video> to it.
-import { TIMELINE, CLIP, HISTORY, LAYOUT, PLAYER } from '$lib/constants';
+import { TIMELINE, CLIP, HISTORY, LAYOUT, PLAYER, TEXT } from '$lib/constants';
 import { IntervalIndex } from './intervals';
 
 export type AspectRatio = 'original' | '16:9' | '9:16' | '1:1';
@@ -22,8 +22,27 @@ export interface Transform {
 
 export const DEFAULT_TRANSFORM: Transform = { x: 0, y: 0, scale: 1 };
 
-/** Track kind. Video clips composite (z-order); audio clips only mix. */
-export type ClipKind = 'video' | 'audio';
+/** Track kind. Video + text composite (z-order); audio clips only mix. */
+export type ClipKind = 'video' | 'audio' | 'text';
+
+export type TextAlign = 'left' | 'center' | 'right';
+
+/** Styling of a text overlay (only set on `kind: 'text'` clips). */
+export interface TextStyle {
+	content: string;
+	/** Font id referencing the bundled font manifest (see lib/text/fonts.ts). */
+	fontId: string;
+	/** Font size as a percentage of the output frame height (resolution-independent). */
+	sizePct: number;
+	/** Fill colour, hex #RRGGBB. */
+	color: string;
+	align: TextAlign;
+	/** Font weight (400 / 600 / 700). */
+	weight: number;
+	/** Outline width as a percentage of font size (0 = none). */
+	outline: number;
+	outlineColor: string;
+}
 
 export interface Clip {
 	id: string;
@@ -57,6 +76,22 @@ export interface Clip {
 	speed: number;
 	/** Placement within the output viewport (compositing). */
 	transform: Transform;
+	/** Text styling; present only on `kind: 'text'` clips. */
+	text?: TextStyle;
+}
+
+/** A fresh text style with the configured defaults. */
+export function defaultTextStyle(): TextStyle {
+	return {
+		content: TEXT.defaultContent,
+		fontId: TEXT.defaultFontId,
+		sizePct: TEXT.defaultSizePct,
+		color: TEXT.defaultColor,
+		align: 'center',
+		weight: TEXT.defaultWeight,
+		outline: TEXT.defaultOutline,
+		outlineColor: TEXT.defaultOutlineColor
+	};
 }
 
 /** Untrimmed source span (seconds). */
@@ -132,6 +167,7 @@ class EditorStore {
 	/** Explicit lane counts (added via the timeline "+ track" buttons). */
 	videoTracks = $state(1);
 	audioTracks = $state(0);
+	textTracks = $state(0);
 
 	/** Project length: the latest clip end across all tracks. */
 	totalDuration = $derived(this.clips.reduce((max, c) => Math.max(max, clipEnd(c)), 0));
@@ -145,6 +181,7 @@ class EditorStore {
 	/** Lanes shown per section: the explicit count, never fewer than occupied. */
 	videoLaneCount = $derived(Math.max(this.videoTracks, this.trackCountFor('video')));
 	audioLaneCount = $derived(Math.max(this.audioTracks, this.trackCountFor('audio')));
+	textLaneCount = $derived(Math.max(this.textTracks, this.trackCountFor('text')));
 
 	/** Add an empty lane to a section (timeline "+ track" buttons). */
 	addVideoTrack() {
@@ -152,6 +189,9 @@ class EditorStore {
 	}
 	addAudioTrack() {
 		this.audioTracks = this.audioLaneCount + 1;
+	}
+	addTextTrack() {
+		this.textTracks = this.textLaneCount + 1;
 	}
 
 	/** Remove an empty lane; lanes above it slide down to close the gap. No-op if occupied. */
@@ -161,6 +201,9 @@ class EditorStore {
 	removeAudioTrack(track: number) {
 		this.removeTrack('audio', track);
 	}
+	removeTextTrack(track: number) {
+		this.removeTrack('text', track);
+	}
 	private removeTrack(kind: ClipKind, track: number) {
 		if (this.clips.some((c) => c.kind === kind && c.track === track)) return;
 		const above = this.clips.filter((c) => c.kind === kind && c.track > track);
@@ -169,7 +212,8 @@ class EditorStore {
 			for (const c of above) c.track -= 1;
 		}
 		if (kind === 'video') this.videoTracks = Math.max(0, this.videoLaneCount - 1);
-		else this.audioTracks = Math.max(0, this.audioLaneCount - 1);
+		else if (kind === 'audio') this.audioTracks = Math.max(0, this.audioLaneCount - 1);
+		else this.textTracks = Math.max(0, this.textLaneCount - 1);
 	}
 
 	/** Interval index over clip [start, end); rebuilt only when clips change. */
@@ -199,6 +243,8 @@ class EditorStore {
 	});
 	/** Active audio clips (for hidden audio playback). */
 	activeAudioClips = $derived(this.activeClips.filter((c) => c.kind === 'audio'));
+	/** Active text overlays, base-first; composited on top of all video layers. */
+	activeTextClips = $derived(this.activeClips.filter((c) => c.kind === 'text'));
 
 	// ── Undo / redo history (snapshot-based) ────────────────────
 	private undoStack = $state<Snapshot[]>([]);
@@ -321,6 +367,52 @@ class EditorStore {
 		this.selectedId = audio.id;
 	}
 
+	/** Add a text overlay at a timeline position (defaults to the playhead). It
+	 * composites on top of the video; its on-screen span is editable via trim. */
+	addText(start = this.playhead) {
+		if (this.textTracks < 1) this.textTracks = 1;
+		const id = crypto.randomUUID();
+		this.addClip({
+			id,
+			kind: 'text',
+			src: '',
+			path: '',
+			name: TEXT.defaultContent,
+			sourceDuration: TEXT.maxDurationSec,
+			inPoint: 0,
+			outPoint: TEXT.defaultDurationSec,
+			start,
+			track: 0,
+			aspectRatio: 16 / 9,
+			thumbnails: [],
+			volume: 0,
+			muted: true,
+			fadeInSec: 0,
+			fadeOutSec: 0,
+			speed: 1,
+			transform: { ...DEFAULT_TRANSFORM },
+			text: defaultTextStyle()
+		});
+		this.select(id);
+	}
+
+	/** Update the selected text overlay's content (also keeps its timeline label). */
+	setTextContent(content: string) {
+		const c = this.selectedClip;
+		if (!c || !c.text) return;
+		this.recordBefore();
+		c.text = { ...c.text, content };
+		c.name = content.trim() || TEXT.defaultContent;
+	}
+
+	/** Patch one or more style fields of the selected text overlay. */
+	setTextStyle(patch: Partial<TextStyle>) {
+		const c = this.selectedClip;
+		if (!c || !c.text) return;
+		this.recordBefore();
+		c.text = { ...c.text, ...patch };
+	}
+
 	removeClip(id: string) {
 		const idx = this.clips.findIndex((c) => c.id === id);
 		if (idx === -1) return;
@@ -344,6 +436,7 @@ class EditorStore {
 		this.aspectRatio = aspectRatio;
 		this.videoTracks = Math.max(1, this.trackCountFor('video'));
 		this.audioTracks = this.trackCountFor('audio');
+		this.textTracks = this.trackCountFor('text');
 		this.selectedId = clips[0]?.id ?? null;
 		this.playhead = 0;
 		this.waveforms = {};

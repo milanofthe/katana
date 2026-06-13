@@ -124,6 +124,27 @@ export const AUDIO_SCRUB = {
 	throttleMs: 55
 } as const;
 
+export const TEXT = {
+	/** Default on-screen duration of a freshly added text overlay (seconds). */
+	defaultDurationSec: 5,
+	/** Generous virtual source length so a text clip can be stretched on the timeline. */
+	maxDurationSec: 3600,
+	/** Default + bounds of the font size, expressed as a percentage of frame height
+	 *  (resolution-independent, so preview and export agree at any output size). */
+	defaultSizePct: 9,
+	minSizePct: 2,
+	maxSizePct: 40,
+	/** Default style of a new overlay. */
+	defaultContent: 'Text',
+	defaultFontId: 'jakarta',
+	defaultColor: '#ffffff',
+	defaultWeight: 700,
+	/** Outline width as a percentage of font size (0 = none); aids legibility. */
+	defaultOutline: 0,
+	maxOutlinePct: 20,
+	defaultOutlineColor: '#000000'
+} as const;
+
 export const VIEWPORT = {
 	/** Snap distance (normalized to viewport size) when dragging near center/edges. */
 	snapThreshold: 0.025,

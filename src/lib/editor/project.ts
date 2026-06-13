@@ -4,7 +4,14 @@
 // project files stay tiny and portable.
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import { editor, type Clip, type ClipKind, type AspectRatio } from './store.svelte';
+import {
+	editor,
+	defaultTextStyle,
+	type Clip,
+	type ClipKind,
+	type TextStyle,
+	type AspectRatio
+} from './store.svelte';
 import { ensureWaveform } from './waveform';
 import { extractThumbs } from './import';
 
@@ -26,6 +33,7 @@ interface SavedClip {
 	fadeOutSec: number;
 	speed: number;
 	transform: { x: number; y: number; scale: number };
+	text?: TextStyle;
 }
 
 interface ProjectFile {
@@ -51,16 +59,22 @@ function toSaved(c: Clip): SavedClip {
 		fadeInSec: c.fadeInSec,
 		fadeOutSec: c.fadeOutSec,
 		speed: c.speed,
-		transform: { x: c.transform.x, y: c.transform.y, scale: c.transform.scale }
+		transform: { x: c.transform.x, y: c.transform.y, scale: c.transform.scale },
+		...(c.text ? { text: { ...c.text } } : {})
 	};
 }
 
+const KNOWN_KINDS: ClipKind[] = ['video', 'audio', 'text'];
+
 /** Rehydrate a saved clip: recompute the asset URL, leave media to regenerate. */
 function fromSaved(s: SavedClip): Clip {
+	const kind: ClipKind = KNOWN_KINDS.includes(s.kind) ? s.kind : 'video';
+	const isText = kind === 'text';
 	return {
 		id: crypto.randomUUID(),
-		kind: s.kind === 'audio' ? 'audio' : 'video',
-		src: convertFileSrc(s.path),
+		kind,
+		// Text overlays have no source media; everything else resolves an asset URL.
+		src: isText ? '' : convertFileSrc(s.path),
 		path: s.path,
 		name: s.name ?? '',
 		sourceDuration: s.sourceDuration ?? 0,
@@ -79,7 +93,8 @@ function fromSaved(s: SavedClip): Clip {
 			x: s.transform?.x ?? 0,
 			y: s.transform?.y ?? 0,
 			scale: s.transform?.scale ?? 1
-		}
+		},
+		...(isText ? { text: s.text ?? defaultTextStyle() } : {})
 	};
 }
 
@@ -136,7 +151,9 @@ export async function openProject(): Promise<void> {
 	editor.loadProject(clips, data.aspectRatio ?? 'original');
 
 	// Regenerate derived media from disk (off the UI thread / in the background).
+	// Text overlays have no source media, so nothing to regenerate.
 	for (const c of clips) {
+		if (c.kind === 'text') continue;
 		void ensureWaveform(c.src, c.path);
 		if (c.kind === 'video') void extractThumbs(c.id, c.path, c.sourceDuration);
 	}
