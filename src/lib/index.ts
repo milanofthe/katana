@@ -15,3 +15,4 @@ export { default as IconButton } from './components/IconButton.svelte';
 export { default as Tooltip } from './components/Tooltip.svelte';
 export { default as Slider } from './components/Slider.svelte';
 export { default as ColorPicker } from './components/ColorPicker.svelte';
+export { default as Select } from './components/Select.svelte';

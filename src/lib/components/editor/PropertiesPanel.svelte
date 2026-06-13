@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Slider, IconButton, Icon, ColorPicker } from '$lib';
+	import { Slider, IconButton, Icon, ColorPicker, Select } from '$lib';
 	import { editor, clipDuration, type TextAlign } from '$lib/editor/store.svelte';
 	import { CLIP, VIEWPORT, TEXT } from '$lib/constants';
 	import { FONTS } from '$lib/text/fonts';
@@ -8,15 +8,16 @@
 	const clip = $derived(editor.selectedClip);
 	const duration = $derived(clip ? clipDuration(clip) : 0);
 
-	const ALIGNS: { value: TextAlign; label: string }[] = [
+	const fontOptions = FONTS.map((f) => ({ value: f.id, label: f.label, font: f.cssFamily }));
+	const alignOptions = [
 		{ value: 'left', label: 'Left' },
 		{ value: 'center', label: 'Center' },
 		{ value: 'right', label: 'Right' }
 	];
-	const WEIGHTS = [
-		{ value: 400, label: 'Regular' },
-		{ value: 600, label: 'Medium' },
-		{ value: 700, label: 'Bold' }
+	const weightOptions = [
+		{ value: '400', label: 'Regular' },
+		{ value: '600', label: 'Medium' },
+		{ value: '700', label: 'Bold' }
 	];
 </script>
 
@@ -68,16 +69,12 @@
 
 						<div class="row">
 							<span class="row-label">Font</span>
-							<select
-								class="select"
-								aria-label="Font"
+							<Select
 								value={clip.text.fontId}
-								onchange={(e) => editor.setTextStyle({ fontId: e.currentTarget.value })}
-							>
-								{#each FONTS as f (f.id)}
-									<option value={f.id} style="font-family:{f.cssFamily}">{f.label}</option>
-								{/each}
-							</select>
+								options={fontOptions}
+								label="Font"
+								onchange={(v) => editor.setTextStyle({ fontId: v })}
+							/>
 						</div>
 
 						<div class="row">
@@ -114,28 +111,22 @@
 
 						<div class="row">
 							<span class="row-label">Align</span>
-							<div class="segmented">
-								{#each ALIGNS as a (a.value)}
-									<button
-										class="seg"
-										class:active={clip.text.align === a.value}
-										onclick={() => editor.setTextStyle({ align: a.value })}>{a.label}</button
-									>
-								{/each}
-							</div>
+							<Select
+								value={clip.text.align}
+								options={alignOptions}
+								label="Text alignment"
+								onchange={(v) => editor.setTextStyle({ align: v as TextAlign })}
+							/>
 						</div>
 
 						<div class="row">
 							<span class="row-label">Weight</span>
-							<div class="segmented">
-								{#each WEIGHTS as w (w.value)}
-									<button
-										class="seg"
-										class:active={clip.text.weight === w.value}
-										onclick={() => editor.setTextStyle({ weight: w.value })}>{w.label}</button
-									>
-								{/each}
-							</div>
+							<Select
+								value={String(clip.text.weight)}
+								options={weightOptions}
+								label="Font weight"
+								onchange={(v) => editor.setTextStyle({ weight: Number(v) })}
+							/>
 						</div>
 
 						<div class="row">
@@ -498,56 +489,6 @@
 		border-color: var(--katana-accent);
 	}
 
-	/* Native select, tokenized. */
-	.select {
-		flex: 1;
-		min-width: 0;
-		height: var(--katana-control-sm);
-		padding: 0 var(--katana-space-2);
-		border-radius: var(--katana-radius-sm);
-		background: var(--katana-bg-overlay);
-		border: var(--katana-border-width) solid var(--katana-border);
-		color: var(--katana-text-primary);
-		font-size: var(--katana-text-xs);
-		cursor: pointer;
-	}
-	.select:focus-visible {
-		outline: none;
-		border-color: var(--katana-accent);
-	}
-
-	/* Compact segmented control (alignment / weight). */
-	.segmented {
-		display: flex;
-		flex: 1;
-		min-width: 0;
-		gap: var(--katana-space-1);
-	}
-	.seg {
-		flex: 1;
-		min-width: 0;
-		height: var(--katana-control-sm);
-		padding: 0 var(--katana-space-1);
-		border-radius: var(--katana-radius-sm);
-		background: var(--katana-bg-overlay);
-		border: var(--katana-border-width) solid var(--katana-border);
-		color: var(--katana-text-secondary);
-		font-size: var(--katana-text-xs);
-		font-weight: var(--katana-weight-medium);
-		cursor: pointer;
-		transition:
-			background var(--katana-duration-fast) var(--katana-ease-out),
-			color var(--katana-duration-fast) var(--katana-ease-out);
-	}
-	.seg:hover {
-		background: var(--katana-bg-elevated);
-		color: var(--katana-text-primary);
-	}
-	.seg.active {
-		background: var(--katana-accent);
-		border-color: var(--katana-accent);
-		color: var(--katana-accent-contrast);
-	}
 	.value {
 		flex: none;
 		min-width: 2.75rem;

@@ -40,7 +40,13 @@ export const PLAYER = {
 	 * During playback, mount + pre-decode upcoming clips this many seconds before
 	 * they start, so clip boundaries don't restart decoding (no stutter at cuts).
 	 */
-	lookaheadSec: 0.6
+	lookaheadSec: 0.6,
+	/**
+	 * While scrubbing, the full-res <video> is re-seeked at most this often (ms)
+	 * so the decoder isn't choked, but the preview still sharpens continuously
+	 * (not only on release). The dense thumbnail LOD bridges the gaps between.
+	 */
+	scrubSeekThrottleMs: 90
 } as const;
 
 export const SEEK = {
@@ -62,9 +68,10 @@ export const THUMB = {
 	/**
 	 * Captured strip frame width (px); height keeps the source aspect ratio.
 	 * Low-res by design: the strip is a scrub-LOD / filmstrip proxy, not the
-	 * full-res preview, so a small width keeps a dense strip cheap in memory.
+	 * full-res preview, so a modest width keeps a dense strip cheap in memory
+	 * while staying sharp enough to bridge a scrub before the video catches up.
 	 */
-	width: 160,
+	width: 320,
 	/**
 	 * Target spacing between captured frames (seconds of source). Denser frames
 	 * let the scrub LOD track the pointer smoothly instead of snapping in chunks.
@@ -126,7 +133,7 @@ export const AUDIO_SCRUB = {
 
 export const TEXT = {
 	/** Default on-screen duration of a freshly added text overlay (seconds). */
-	defaultDurationSec: 5,
+	defaultDurationSec: 10,
 	/** Generous virtual source length so a text clip can be stretched on the timeline. */
 	maxDurationSec: 3600,
 	/** Default + bounds of the font size, expressed as a percentage of frame height

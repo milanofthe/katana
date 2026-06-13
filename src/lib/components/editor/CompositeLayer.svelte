@@ -150,18 +150,44 @@
 	// Keep the source time synced to the master playhead, throttled to one seek
 	// per frame. Local timeline time scales by speed into source time.
 	let seekRaf = 0;
-	// True between issuing a paused seek and its completion: the dense LOD frame
-	// stays up so the catching-up video never flashes a stale frame.
+	// True between issuing a seek and its completion: the dense LOD frame stays up
+	// so the catching-up video never shows a stale/blurry frame mid-seek.
 	let awaitingSeek = $state(false);
+	// Throttle state for full-res seeks while scrubbing.
+	let lastScrubSeekTs = 0;
+	let scrubTrailTimer = 0;
 	$effect(() => {
 		const v = video;
 		if (!v) return;
 		// Active layers track the playhead; look-ahead layers park at the in-point.
 		const target = clipSourceTime(clip, active ? editor.localTime(clip) : 0);
-		// While actively scrubbing, the dense thumbnail strip carries the preview;
-		// skip the expensive full-res seek (keyframe decode) and settle once when
-		// the scrub ends, freeing the decoder so the playhead + LOD stay smooth.
-		if (editor.scrubbing) return;
+
+		const doSeek = () => {
+			if (Math.abs(v.currentTime - target) <= 0.001) return;
+			awaitingSeek = true;
+			v.currentTime = target;
+		};
+
+		// While scrubbing, still seek the full-res video so it sharpens as you drag
+		// (not only on release), but throttle it so the decoder isn't choked. The
+		// dense LOD thumbnail covers each seek only until it decodes (awaitingSeek).
+		if (editor.scrubbing) {
+			const now = performance.now();
+			clearTimeout(scrubTrailTimer);
+			if (now - lastScrubSeekTs >= PLAYER.scrubSeekThrottleMs) {
+				lastScrubSeekTs = now;
+				cancelAnimationFrame(seekRaf);
+				seekRaf = requestAnimationFrame(doSeek);
+			} else {
+				// Trailing seek so we always land on the final position.
+				scrubTrailTimer = window.setTimeout(() => {
+					lastScrubSeekTs = performance.now();
+					doSeek();
+				}, PLAYER.scrubSeekThrottleMs);
+			}
+			return;
+		}
+
 		// While paused, seek precisely so the preview reflects every timeline edit;
 		// while playing, tolerate small drift to avoid fighting native playback.
 		const threshold = editor.playing ? PLAYER.seekThresholdSec : 0.001;
@@ -205,11 +231,11 @@
 			: ''
 	);
 
-	// Instant low-res preview while scrubbing (or settling a paused seek): the
-	// nearest captured thumbnail, shown over the catching-up video. Only the
-	// active layer paints it, and never during playback (no thumbnail flicker).
+	// Low-res bridge shown only while a seek is in flight (awaitingSeek): the
+	// nearest captured thumbnail covers the catching-up video until it decodes,
+	// then reveals the sharp frame. Active layer only, never during playback.
 	const scrubFrame = $derived(
-		active && !editor.playing && (editor.scrubbing || awaitingSeek) && clip.thumbnails.length > 0
+		active && !editor.playing && awaitingSeek && clip.thumbnails.length > 0
 			? clip.thumbnails[clipFrameIndex(clip, editor.localTime(clip))]
 			: undefined
 	);
