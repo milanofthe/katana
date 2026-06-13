@@ -10,8 +10,16 @@
 			text: 'Layer clips on a real viewport canvas: place, scale and snap. Picture in picture, split screen, overlays.'
 		},
 		{
+			title: 'Text overlays',
+			text: 'Add styled titles: pick a font, color, alignment and outline, then place, scale and fade them like any clip.'
+		},
+		{
 			title: 'Lossless export',
 			text: 'Copies the stream when nothing needs encoding again: trim and export in seconds with zero quality loss.'
+		},
+		{
+			title: 'Frame accurate',
+			text: 'Step frame by frame, and the timeline runs at your fastest clip frame rate, so nothing gets downsampled.'
 		},
 		{
 			title: 'Snappy playback',
@@ -69,6 +77,10 @@
 		{
 			q: 'What formats can Katana export?',
 			a: 'MP4 (H.264 and H.265), WebM (VP9), MOV and GIF. When a clip needs no re-encoding, Katana copies the stream for a lossless export in seconds.'
+		},
+		{
+			q: 'Can Katana add text to videos?',
+			a: 'Yes. Add styled text overlays with a font, color, alignment and outline, then place, scale and fade them on the timeline like any other clip. The export draws the same fonts, so titles look identical to the preview.'
 		}
 	];
 
@@ -99,7 +111,7 @@
 		</h1>
 		<p class="lead">
 			A free, open source video editor for Windows and Linux. Fast, minimalist and multitrack:
-			compositing, lossless export and a snappy UI, in a tiny native app.
+			compositing, text overlays, lossless export and a snappy UI, in a tiny native app.
 		</p>
 		<div class="cta">
 			<Button variant="primary" size="lg" href={RELEASES} target="_blank">Download</Button>

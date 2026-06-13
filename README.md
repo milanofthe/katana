@@ -15,29 +15,36 @@
 
 ## What it is
 
-Katana is a lightweight desktop video editor focused on the everyday cut: import clips, trim and split them, reorder, and export. It's built to feel instant, the heavy lifting is done with native FFmpeg and lossless stream-copy where possible, so a cut is I/O-bound rather than a full re-encode.
+Katana is a lightweight desktop video editor: import clips, compose them on a multitrack timeline, add titles, and export. It's built to feel instant, the heavy lifting is done with native FFmpeg and lossless stream-copy where possible, so a simple cut is I/O-bound rather than a full re-encode.
 
 ## Features
 
-- **Import** via native file dialog or drag-and-drop from the file manager
-- **Filmstrip previews** on every clip, aspect-correct frames sampled across the source
-- **Playback** with live timecode and a playhead that follows the video
-- **Scrubbing** by dragging the ruler
-- **Split** at the playhead, **trim** by dragging clip edges, **delete**
-- **Reorder** clips by dragging them along the timeline
-- **Keyboard-first**: Space to play, arrows to step, `S` to split, and more
+- **Multitrack compositing**: layer clips on a viewport canvas, place, scale and snap (picture in picture, split screen, overlays)
+- **Text overlays**: styled titles with a font, color, alignment and outline, placed, scaled and faded like any clip
+- **Mixed frame rates**: the timeline runs at the fastest clip's frame rate; slower clips are frame-held to match
+- **Frame-accurate editing**: step the playhead frame by frame, split at the playhead, trim by dragging clip edges
+- **Audio you control**: detach audio to its own track, import music, mix and fade, with waveforms and audio scrubbing
+- **Fast export**: MP4 (H.264 / H.265), WebM (VP9), MOV and GIF, with a lossless stream-copy fast path
+- **Snappy UX**: GPU-accelerated dragging, instant scrubbing, undo / redo and a command palette (`Cmd/Ctrl` + `K`)
+- **Import** via native file dialog or drag-and-drop, with filmstrip previews on every clip
+- **Project save / load** to a small `.katana` file
 
 ## Keyboard shortcuts
 
 | Key | Action |
 | --- | --- |
 | `Space` | Play / pause |
-| `←` / `→` | Step playhead ±1s |
-| `Shift` + `←` / `→` | Step ±5s |
+| `←` / `→` | Step one frame |
+| `Shift` + `←` / `→` | Step ±1 second |
+| `,` / `.` | Step one frame (alternative) |
 | `↑` / `↓` | Previous / next clip |
 | `Home` / `End` | Jump to start / end |
 | `S` | Split at playhead |
+| `T` | Add text overlay |
 | `Delete` / `Backspace` | Delete selected clip |
+| `Cmd/Ctrl` + `Z` | Undo (`Shift` to redo) |
+| `Cmd/Ctrl` + `S` / `O` | Save / open project |
+| `Cmd/Ctrl` + `K` | Command palette |
 
 ## Tech stack
 
