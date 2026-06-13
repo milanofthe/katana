@@ -150,15 +150,23 @@
 	// Keep the source time synced to the master playhead, throttled to one seek
 	// per frame. Local timeline time scales by speed into source time.
 	let seekRaf = 0;
+	// True between issuing a paused seek and its completion: the dense LOD frame
+	// stays up so the catching-up video never flashes a stale frame.
+	let awaitingSeek = $state(false);
 	$effect(() => {
 		const v = video;
 		if (!v) return;
 		// Active layers track the playhead; look-ahead layers park at the in-point.
 		const target = clipSourceTime(clip, active ? editor.localTime(clip) : 0);
+		// While actively scrubbing, the dense thumbnail strip carries the preview;
+		// skip the expensive full-res seek (keyframe decode) and settle once when
+		// the scrub ends, freeing the decoder so the playhead + LOD stay smooth.
+		if (editor.scrubbing) return;
 		// While paused, seek precisely so the preview reflects every timeline edit;
 		// while playing, tolerate small drift to avoid fighting native playback.
 		const threshold = editor.playing ? PLAYER.seekThresholdSec : 0.001;
 		if (Math.abs(v.currentTime - target) <= threshold) return;
+		if (!editor.playing) awaitingSeek = true;
 		cancelAnimationFrame(seekRaf);
 		seekRaf = requestAnimationFrame(() => {
 			v.currentTime = target;
@@ -197,10 +205,11 @@
 			: ''
 	);
 
-	// Instant low-res preview while scrubbing: nearest captured thumbnail, shown
-	// over the (catching-up) video. Hidden the moment scrubbing stops.
+	// Instant low-res preview while scrubbing (or settling a paused seek): the
+	// nearest captured thumbnail, shown over the catching-up video. Only the
+	// active layer paints it, and never during playback (no thumbnail flicker).
 	const scrubFrame = $derived(
-		editor.scrubbing && clip.thumbnails.length > 0
+		active && !editor.playing && (editor.scrubbing || awaitingSeek) && clip.thumbnails.length > 0
 			? clip.thumbnails[clipFrameIndex(clip, editor.localTime(clip))]
 			: undefined
 	);
@@ -236,6 +245,7 @@
 	onpointercancel={onPointerUp}
 	onwheel={onWheel}
 	onloadedmetadata={onLoadedMeta}
+	onseeked={() => (awaitingSeek = false)}
 ></video>
 {#if scrubFrame}
 	<img class="scrub-frame" src={scrubFrame} alt="" style="{boxStyle};opacity:{fadeOpacity}" />

@@ -52,10 +52,16 @@ function probeVideoMeta(src: string): Promise<VideoMeta> {
 
 /** Pull filmstrip frames from the ffmpeg sidecar and attach them to the clip. */
 export async function extractThumbs(id: string, path: string, duration: number): Promise<void> {
+	// Frame count scales with duration so long clips stay scrub-smooth, clamped
+	// so short clips are still usable and very long clips stay memory-bounded.
+	const count = Math.max(
+		THUMB.minFrames,
+		Math.min(THUMB.maxFrames, Math.round((duration || 0) / THUMB.secondsPerFrame))
+	);
 	try {
 		const thumbs = await invoke<string[]>('extract_thumbnails', {
 			path,
-			count: THUMB.frameCount,
+			count,
 			width: THUMB.width,
 			duration
 		});

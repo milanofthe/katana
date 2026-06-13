@@ -20,55 +20,56 @@ pub async fn extract_thumbnails(
 	duration: f64,
 ) -> Result<Vec<String>, String> {
 	let count = count.max(1);
-	let mut frames: Vec<String> = Vec::with_capacity(count as usize);
 
 	let stamp = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.map(|d| d.as_nanos())
 		.unwrap_or(0);
 	let dir = std::env::temp_dir();
+	// Numbered output sequence (ffmpeg starts the counter at 1).
+	let pattern = dir.join(format!("katana-thumb-{stamp}-%04d.jpg"));
+	let pattern_str = pattern.to_string_lossy().to_string();
 
-	for i in 0..count {
-		let t = if duration > 0.0 {
-			((i as f64 + 0.5) / count as f64) * duration
-		} else {
-			0.0
-		};
-		let out_path = dir.join(format!("katana-thumb-{stamp}-{i}.jpg"));
-		let out_str = out_path.to_string_lossy().to_string();
+	// One ffmpeg spawn for the whole strip: the fps filter samples `count` evenly
+	// spaced frames in a single decode pass. Spawning once (vs once per frame)
+	// keeps dense strips cheap enough that scrubbing tracks the pointer smoothly.
+	let fps = if duration > 0.0 {
+		count as f64 / duration
+	} else {
+		1.0
+	};
+	let cmd = app
+		.shell()
+		.sidecar("ffmpeg")
+		.map_err(|e| format!("Bundled ffmpeg not found: {e}"))?;
+	let out = cmd
+		.args([
+			"-y",
+			"-i",
+			&path,
+			"-vf",
+			&format!("fps={fps:.6},scale={width}:-2:flags=bilinear,format=yuvj420p"),
+			"-frames:v",
+			&count.to_string(),
+			"-q:v",
+			"4",
+			&pattern_str,
+		])
+		.output()
+		.await
+		.map_err(|e| format!("ffmpeg failed: {e}"))?;
 
-		let cmd = app
-			.shell()
-			.sidecar("ffmpeg")
-			.map_err(|e| format!("Bundled ffmpeg not found: {e}"))?;
-		// Fast keyframe seek before input, one frame out, scaled, written to a file.
-		let out = cmd
-			.args([
-				"-y",
-				"-ss",
-				&format!("{t:.3}"),
-				"-i",
-				&path,
-				"-frames:v",
-				"1",
-				"-vf",
-				&format!("scale={width}:-2:flags=bilinear,format=yuvj420p"),
-				"-q:v",
-				"4",
-				&out_str,
-			])
-			.output()
-			.await
-			.map_err(|e| format!("ffmpeg failed: {e}"))?;
-
-		if out.status.success() {
+	let mut frames: Vec<String> = Vec::with_capacity(count as usize);
+	if out.status.success() {
+		for i in 1..=count {
+			let out_path = dir.join(format!("katana-thumb-{stamp}-{i:04}.jpg"));
 			if let Ok(bytes) = std::fs::read(&out_path) {
 				if !bytes.is_empty() {
 					frames.push(format!("data:image/jpeg;base64,{}", STANDARD.encode(&bytes)));
 				}
 			}
+			let _ = std::fs::remove_file(&out_path);
 		}
-		let _ = std::fs::remove_file(&out_path);
 	}
 
 	Ok(frames)

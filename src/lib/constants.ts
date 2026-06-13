@@ -59,10 +59,20 @@ export const CLIP = {
 } as const;
 
 export const THUMB = {
-	/** Captured preview frame width (px); height keeps the source aspect ratio. */
-	width: 240,
-	/** Number of frames captured evenly across the source for the filmstrip. */
-	frameCount: 10,
+	/**
+	 * Captured strip frame width (px); height keeps the source aspect ratio.
+	 * Low-res by design: the strip is a scrub-LOD / filmstrip proxy, not the
+	 * full-res preview, so a small width keeps a dense strip cheap in memory.
+	 */
+	width: 160,
+	/**
+	 * Target spacing between captured frames (seconds of source). Denser frames
+	 * let the scrub LOD track the pointer smoothly instead of snapping in chunks.
+	 */
+	secondsPerFrame: 1.2,
+	/** Frame-count clamp: floor keeps short clips usable, ceiling bounds memory. */
+	minFrames: 16,
+	maxFrames: 90,
 	/** Assumed filmstrip height (px) used for slot math; tracks the clip thumb height. */
 	stripHeightPx: 88
 } as const;
