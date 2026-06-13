@@ -113,7 +113,12 @@
 	// by the "+ track" buttons); dragging never adds a lane. Empty timeline shows
 	// no lanes at all (see the empty state below).
 	function buildLanes(kind: ClipKind): number[] {
-		const total = kind === 'video' ? editor.videoLaneCount : editor.audioLaneCount;
+		const total =
+			kind === 'video'
+				? editor.videoLaneCount
+				: kind === 'text'
+					? editor.textLaneCount
+					: editor.audioLaneCount;
 		return Array.from({ length: Math.max(0, total) }, (_, i) => total - 1 - i);
 	}
 	const videoLanes = $derived(buildLanes('video'));
