@@ -121,17 +121,17 @@
 	const audioLanes = $derived(buildLanes('audio'));
 
 	type LaneRow = { kind: ClipKind; track: number } | { divider: true };
-	// Sections top-to-bottom: video, text, audio. A divider precedes each section
-	// that follows another present section.
+	// Sections top-to-bottom: video, audio, text. Text sits at the bottom as its
+	// own snippet lane. A divider precedes each section that follows another.
 	const lanes = $derived.by<LaneRow[]>(() => {
 		const out: LaneRow[] = videoLanes.map((track) => ({ kind: 'video' as const, track }));
-		if (textLanes.length) {
-			if (out.length) out.push({ divider: true });
-			for (const track of textLanes) out.push({ kind: 'text' as const, track });
-		}
 		if (audioLanes.length) {
 			if (out.length) out.push({ divider: true });
 			for (const track of audioLanes) out.push({ kind: 'audio' as const, track });
+		}
+		if (textLanes.length) {
+			if (out.length) out.push({ divider: true });
+			for (const track of textLanes) out.push({ kind: 'text' as const, track });
 		}
 		return out;
 	});
@@ -437,13 +437,16 @@
 										class:empty={p.clip.kind === 'audio'
 											? !editor.waveforms[p.clip.path]
 											: p.clip.kind === 'text'
-												? true
+												? false
 												: p.clip.thumbnails.length === 0}
 										class:text-clip={p.clip.kind === 'text'}
 										style="--ar: {p.clip.aspectRatio}"
 									>
 										{#if p.clip.kind === 'text'}
-											<Icon name="type" class="thumb-glyph" />
+											<div class="text-body">
+												<Icon name="type" class="thumb-glyph" />
+												<span class="text-body-content">{p.clip.text?.content}</span>
+											</div>
 										{:else if p.clip.kind === 'audio'}
 											{#if editor.waveforms[p.clip.path]}
 												<canvas
@@ -482,7 +485,7 @@
 										{/if}
 									</div>
 									<div class="clip-meta">
-										<span class="clip-name">{p.clip.name}</span>
+										<span class="clip-name">{p.clip.kind === 'text' ? 'Text' : p.clip.name}</span>
 										<span class="clip-dur katana-mono">{formatTimecode(p.dur)}</span>
 									</div>
 								</button>
@@ -697,13 +700,32 @@
 		align-items: center;
 		justify-content: center;
 	}
-	/* Text overlays: accent-tinted body so they read distinctly from media clips. */
+	/* Text overlays: accent-tinted body showing the content, like a clip preview. */
 	.clip-thumb.text-clip {
 		background-color: var(--katana-accent-muted);
 		color: var(--katana-accent);
 	}
 	.clip-thumb.text-clip :global(.thumb-glyph) {
 		opacity: 0.85;
+		flex: none;
+		font-size: var(--katana-text-md);
+	}
+	.text-body {
+		display: flex;
+		align-items: center;
+		gap: var(--katana-space-2);
+		width: 100%;
+		min-width: 0;
+		padding: 0 var(--katana-space-2);
+	}
+	.text-body-content {
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
+		font-size: var(--katana-text-sm);
+		font-weight: var(--katana-weight-medium);
+		color: var(--katana-text-primary);
 	}
 	.frame {
 		height: 100%;
