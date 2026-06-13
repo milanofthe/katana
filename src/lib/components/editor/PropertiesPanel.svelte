@@ -392,8 +392,7 @@
 		text-transform: uppercase;
 		letter-spacing: var(--katana-tracking-wide);
 	}
-	.kind-badge.audio,
-	.kind-badge.text {
+	.kind-badge.audio {
 		background: var(--katana-accent-muted);
 		color: var(--katana-accent);
 	}

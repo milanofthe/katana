@@ -705,13 +705,8 @@
 		align-items: center;
 		justify-content: center;
 	}
-	/* Text overlays: accent-tinted body showing the content, like a clip preview. */
-	.clip-thumb.text-clip {
-		background-color: var(--katana-accent-muted);
-		color: var(--katana-accent);
-	}
+	/* Text overlays show their content in the body, like a clip preview (neutral). */
 	.clip-thumb.text-clip :global(.thumb-glyph) {
-		opacity: 0.85;
 		flex: none;
 		font-size: var(--katana-text-md);
 	}
