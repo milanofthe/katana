@@ -1,143 +1,108 @@
 <script lang="ts">
-	// One-shot intro: the screen starts fully covered in the background color, the
-	// katana blade drops from above and slices down the center, then the two
-	// halves fold away left and right to reveal the page beneath.
+	// One-shot intro: the screen starts covered in the background color. The katana
+	// descends the center, driving a single progress value (--cut). The two halves
+	// are identical mirror images; the LEFT half sits in front of the blade and the
+	// RIGHT half behind it, so the blade looks stuck through the slit it cuts. The
+	// cut edge is an irregular slash that tracks the blade, no fades, until the
+	// blade leaves the bottom and the page is fully revealed.
 	import { onMount } from 'svelte';
 	import { Logo } from '$ui';
 
 	let visible = $state(true);
 
 	onMount(() => {
-		// Reduced motion is handled in CSS (overlay hidden); here we just unmount
-		// after the animation so the node is gone and nothing lingers in the DOM.
-		const t = setTimeout(() => (visible = false), 1750);
+		const t = setTimeout(() => (visible = false), 2000);
 		return () => clearTimeout(t);
 	});
 </script>
 
 {#if visible}
 	<div class="intro" aria-hidden="true">
-		<div class="half left"></div>
+		<!-- DOM order = z-order: right half (behind blade), blade, left half (front). -->
 		<div class="half right"></div>
-		<div class="edge"></div>
 		<div class="blade"><Logo variant="mark" /></div>
+		<div class="half left"></div>
 	</div>
 {/if}
 
 <style>
+	/* Single animated progress, inherited by the blade and both halves so the cut
+	   and the blade stay locked together. 0 = top, 1 = bottom of the viewport. */
+	@property --cut {
+		syntax: '<number>';
+		inherits: true;
+		initial-value: 0;
+	}
+
 	.intro {
 		position: fixed;
 		inset: 0;
 		z-index: 9999;
 		overflow: hidden;
 		pointer-events: none; /* never block the page underneath */
-		perspective: 1400px;
+
+		/* Tuning knobs. */
+		--dur: 1700ms;
+		--angle: 0deg; /* blade rotation (natural mark orientation) */
+		--blade-offset: 12vh; /* raise the blade so it leads the cut */
+		--vee: 22%; /* V depth: how much the outer edges lag the center seam */
+
+		--cut: -0.2;
+		animation: progress var(--dur) cubic-bezier(0.5, 0, 0.5, 1) forwards;
+	}
+	@keyframes progress {
+		from {
+			--cut: -0.2;
+		}
+		to {
+			--cut: 1.3;
+		}
 	}
 
-	/* Two halves in the background color cover the page, then part. */
+	/* Two halves in the background color cover the page, then peel away. The cut
+	   edge is an irregular slash, deepest at the center seam (under the blade). The
+	   two halves are exact mirror images of each other. */
 	.half {
 		position: absolute;
 		top: 0;
 		bottom: 0;
 		width: 50.5%; /* slight overlap so the center never shows a seam */
-		background: var(--katana-bg-base);
-		backface-visibility: hidden;
-	}
-	.half.left {
-		left: 0;
-		transform-origin: left center;
-		animation: part-left 1650ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
+		/* The curtain is a touch lighter than the page background it peels off. */
+		background: var(--katana-bg-elevated);
 	}
 	.half.right {
 		right: 0;
-		transform-origin: right center;
-		animation: part-right 1650ms cubic-bezier(0.7, 0, 0.2, 1) forwards;
+		z-index: 1; /* behind the blade */
+		clip-path: polygon(
+			100% calc(var(--cut) * 100% - var(--vee)),
+			0% calc(var(--cut) * 100%),
+			0% 100%,
+			100% 100%
+		);
 	}
-	@keyframes part-left {
-		0%,
-		42% {
-			transform: translateX(0) rotateY(0deg);
-		}
-		100% {
-			transform: translateX(-101%) rotateY(-40deg);
-		}
-	}
-	@keyframes part-right {
-		0%,
-		42% {
-			transform: translateX(0) rotateY(0deg);
-		}
-		100% {
-			transform: translateX(101%) rotateY(40deg);
-		}
+	.half.left {
+		left: 0;
+		z-index: 3; /* in front of the blade */
+		clip-path: polygon(
+			0% calc(var(--cut) * 100% - var(--vee)),
+			100% calc(var(--cut) * 100%),
+			100% 100%,
+			0% 100%
+		);
 	}
 
-	/* The cut: a bright accent line drawn down the center as the blade lands. */
-	.edge {
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		left: 50%;
-		width: 2px;
-		transform: translateX(-50%);
-		transform-origin: top center;
-		background: var(--katana-accent);
-		box-shadow: 0 0 18px 3px var(--katana-accent);
-		opacity: 0;
-		animation: cut 1650ms ease-out forwards;
-	}
-	@keyframes cut {
-		0%,
-		12% {
-			opacity: 0;
-			transform: translateX(-50%) scaleY(0);
-		}
-		36% {
-			opacity: 1;
-			transform: translateX(-50%) scaleY(1);
-		}
-		44% {
-			opacity: 1;
-			transform: translateX(-50%) scaleY(1);
-		}
-		66% {
-			opacity: 0;
-		}
-		100% {
-			opacity: 0;
-		}
-	}
-
-	/* The blade descends from above, slices the center, and continues out. */
+	/* The blade rides the cut, centered on X so it straddles the seam: its left
+	   side is hidden by the front half, its right side shows over the back half. */
 	.blade {
 		position: absolute;
 		left: 50%;
-		top: 50%;
-		font-size: clamp(18rem, 46vh, 40rem); /* sizes the Logo mark */
+		top: 0;
+		z-index: 2;
+		font-size: clamp(6rem, 14vh, 11rem); /* sizes the Logo mark (height 1.3em) */
 		line-height: 0;
-		filter: drop-shadow(0 0 30px rgba(0, 0, 0, 0.55));
-		animation: blade 1650ms cubic-bezier(0.5, 0, 0.25, 1) forwards;
-	}
-	@keyframes blade {
-		0% {
-			transform: translate(-50%, -50%) translateY(-150vh) rotate(12deg);
-			opacity: 0;
-		}
-		12% {
-			opacity: 1;
-		}
-		36% {
-			transform: translate(-50%, -50%) translateY(0) rotate(0deg);
-			opacity: 1;
-		}
-		44% {
-			transform: translate(-50%, -50%) translateY(0) rotate(0deg);
-			opacity: 1;
-		}
-		100% {
-			transform: translate(-50%, -50%) translateY(155vh) rotate(-5deg);
-			opacity: 0;
-		}
+		filter: drop-shadow(0 0 16px rgba(0, 0, 0, 0.55));
+		transform: translate(-50%, calc(var(--cut) * 100vh - var(--blade-offset)))
+			rotate(var(--angle));
 	}
 
 	/* Respect reduced motion: no intro, page is shown immediately. */
