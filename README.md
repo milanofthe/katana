@@ -73,6 +73,16 @@ pwsh -File scripts/fetch-ffmpeg.ps1
 bash scripts/fetch-ffmpeg.sh
 ```
 
+Text-overlay fonts (TTF) are likewise fetched, not committed. They are used both
+for the preview and, via the same files, by the FFmpeg exporter so text matches:
+
+```sh
+# Windows (PowerShell)
+pwsh -File scripts/fetch-fonts.ps1
+# Linux
+bash scripts/fetch-fonts.sh
+```
+
 Then:
 
 ```sh
@@ -86,5 +96,6 @@ npm run tauri build   # production build
 
 [MIT](LICENSE) © Milan Rother.
 
-Bundled fonts (Plus Jakarta Sans, JetBrains Mono) are licensed under the
+Bundled fonts (Plus Jakarta Sans, JetBrains Mono, Inter, Archivo Black,
+Playfair Display) are licensed under the
 [SIL Open Font License 1.1](https://openfontlicense.org/) and retain their own license.

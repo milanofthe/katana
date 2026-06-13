@@ -5,3 +5,32 @@
  */
 @import '@fontsource-variable/plus-jakarta-sans';
 @import '@fontsource-variable/jetbrains-mono';
+
+/*
+ * Text-overlay fonts. Loaded from the bundled TTFs (static/fonts, fetched via
+ * scripts/fetch-fonts) so the preview matches what the FFmpeg exporter draws
+ * with the very same files. Jakarta + JetBrains Mono are already provided above
+ * by Fontsource; only the three additional overlay families are declared here.
+ * See lib/text/fonts.ts for the manifest (id -> family + file).
+ */
+@font-face {
+	font-family: 'Inter Variable';
+	font-style: normal;
+	font-weight: 100 900;
+	font-display: swap;
+	src: url('/fonts/Inter.ttf') format('truetype-variations');
+}
+@font-face {
+	font-family: 'Archivo Black';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/ArchivoBlack.ttf') format('truetype');
+}
+@font-face {
+	font-family: 'Playfair Display Variable';
+	font-style: normal;
+	font-weight: 400 900;
+	font-display: swap;
+	src: url('/fonts/PlayfairDisplay.ttf') format('truetype-variations');
+}

@@ -21,9 +21,11 @@ jobs:
         include:
           - platform: windows-latest
             ffmpeg: pwsh -File scripts/fetch-ffmpeg.ps1
+            fonts: pwsh -File scripts/fetch-fonts.ps1
             args: ''
           - platform: ubuntu-22.04
             ffmpeg: bash scripts/fetch-ffmpeg.sh
+            fonts: bash scripts/fetch-fonts.sh
             # AppImage (portable) + .deb (Debian/Ubuntu). No rpmbuild needed.
             args: --bundles deb,appimage
     runs-on: ${{ matrix.platform }}
@@ -61,6 +63,11 @@ jobs:
       # self-contained ffmpeg/ffprobe. See scripts/fetch-ffmpeg.{ps1,sh}.
       - name: Fetch FFmpeg sidecars
         run: ${{ matrix.ffmpeg }}
+
+      # Overlay font TTFs (not committed) bundled as resources for text export.
+      # See scripts/fetch-fonts.{ps1,sh}.
+      - name: Fetch overlay fonts
+        run: ${{ matrix.fonts }}
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0

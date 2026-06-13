@@ -17,6 +17,9 @@ Thumbs.db
 # Bundled FFmpeg sidecars (large; fetched via scripts/fetch-ffmpeg.ps1)
 /src-tauri/binaries/
 
+# Bundled overlay font TTFs (fetched via scripts/fetch-fonts.ps1)
+/static/fonts/
+
 # Env
 .env
 .env.*
