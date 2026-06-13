@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Logo, Button, Icon } from '$ui';
+	import IntroReveal from '../lib/IntroReveal.svelte';
 
 	const REPO = 'https://github.com/milanofthe/katana';
 	const RELEASES = `${REPO}/releases`;
@@ -100,6 +101,8 @@
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html `<script type="application/ld+json">${faqLd}</scr` + `ipt>`}
 </svelte:head>
+
+<IntroReveal />
 
 <div class="grid-bg" aria-hidden="true"></div>
 
