@@ -255,10 +255,13 @@ fn placement(cw: i64, ch: i64, c: &ExportClip) -> (i64, i64, i64, i64) {
 	(dw, dh, ox, oy)
 }
 
-/// Single-quote a path for the filtergraph (forward slashes; protects ':' and
-/// spaces). Temp/resource paths won't contain single quotes.
+/// Single-quote a path for the filtergraph (forward slashes; protects spaces).
+/// The drive-letter ':' must be backslash-escaped even inside single quotes, or
+/// drawtext's option parser splits on it (Windows `C:/…` → "No option name").
+/// Non-Windows paths have no ':' so this is a no-op there. Temp/resource paths
+/// won't contain single quotes.
 fn ff_path(p: &str) -> String {
-	format!("'{}'", p.replace('\\', "/"))
+	format!("'{}'", p.replace('\\', "/").replace(':', "\\:"))
 }
 
 /// Hex #RRGGBB -> ffmpeg 0xRRGGBB (falls back to white if malformed).
