@@ -157,7 +157,7 @@ export async function openProject(): Promise<void> {
 	// Text overlays have no source media, so nothing to regenerate.
 	for (const c of clips) {
 		if (c.kind === 'text') continue;
-		void ensureWaveform(c.src, c.path);
+		void ensureWaveform(c.path);
 		if (c.kind === 'video') void extractThumbs(c.id, c.path, c.sourceDuration);
 	}
 	editor.notify('Project loaded', 'ok');

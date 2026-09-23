@@ -1,7 +1,9 @@
-// Audio extraction for the timeline: decode each source once via WebAudio,
-// downsample to peaks (kept in the reactive store for waveform drawing) and
-// cache the decoded AudioBuffer (kept here, off the reactive store) so the
-// playhead scrub can play short audio grains from it.
+// Audio extraction for the timeline: the ffmpeg sidecar decodes each source
+// once to low-rate mono PCM (the WebView never loads the media file itself),
+// which is downsampled to peaks (kept in the reactive store for waveform
+// drawing) and cached as an AudioBuffer (kept here, off the reactive store) so
+// the playhead scrub can play short audio grains from it.
+import { invoke } from '@tauri-apps/api/core';
 import { editor } from './store.svelte';
 import { WAVEFORM, AUDIO_SCRUB } from '$lib/constants';
 
@@ -15,83 +17,37 @@ function audioCtx(): AudioContext {
 const bufferCache = new Map<string, AudioBuffer>();
 const pending = new Set<string>();
 
-// One reusable worker for peak extraction (created lazily, client-side only).
-let worker: Worker | null = null;
-let workerBroken = false;
-function getWorker(): Worker | null {
-	if (workerBroken) return null;
-	if (!worker) {
-		try {
-			worker = new Worker(new URL('./waveform.worker.ts', import.meta.url), { type: 'module' });
-		} catch {
-			workerBroken = true;
-			return null;
-		}
-	}
-	return worker;
-}
-
-/** Copy a buffer's channels so transferring to the worker keeps the original. */
-function copyChannels(buffer: AudioBuffer): Float32Array[] {
-	const out: Float32Array[] = [];
-	for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-		out.push(buffer.getChannelData(ch).slice(0));
-	}
-	return out;
-}
-
-/** Main-thread fallback (same algorithm) if the worker is unavailable. */
-function computePeaksMain(channels: Float32Array[]): number[] {
+/** Downsample to absolute-peak buckets (strided, so cheap on the main thread). */
+function computePeaks(data: Float32Array): number[] {
 	const n = WAVEFORM.resolution;
 	const peaks = new Array<number>(n).fill(0);
-	const len = channels[0]?.length ?? 0;
-	const bucket = Math.max(1, Math.floor(len / n));
+	const bucket = Math.max(1, Math.floor(data.length / n));
 	const stride = Math.max(1, Math.floor(bucket / WAVEFORM.maxSamplesPerBucket));
-	for (const data of channels) {
-		for (let i = 0; i < n; i++) {
-			const start = i * bucket;
-			const end = Math.min(len, start + bucket);
-			let peak = 0;
-			for (let j = start; j < end; j += stride) {
-				const a = Math.abs(data[j]);
-				if (a > peak) peak = a;
-			}
-			if (peak > peaks[i]) peaks[i] = peak;
+	for (let i = 0; i < n; i++) {
+		const end = Math.min(data.length, (i + 1) * bucket);
+		for (let j = i * bucket; j < end; j += stride) {
+			peaks[i] = Math.max(peaks[i], Math.abs(data[j]));
 		}
 	}
 	return peaks;
 }
 
-/** Downsample to absolute-peak buckets in a worker; fall back to main thread. */
-function extractPeaks(buffer: AudioBuffer): Promise<number[]> {
-	const channels = copyChannels(buffer);
-	const w = getWorker();
-	if (!w) return Promise.resolve(computePeaksMain(channels));
-	return new Promise((resolve) => {
-		const onMessage = (e: MessageEvent<Float32Array>) => {
-			w.removeEventListener('message', onMessage);
-			resolve(Array.from(e.data));
-		};
-		w.addEventListener('message', onMessage);
-		w.postMessage(
-			{ channels, resolution: WAVEFORM.resolution, maxSamplesPerBucket: WAVEFORM.maxSamplesPerBucket },
-			channels.map((c) => c.buffer)
-		);
-	});
-}
-
 /** Decode a source (once) and publish its waveform; silent failure if no audio. */
-export async function ensureWaveform(src: string, path: string): Promise<void> {
+export async function ensureWaveform(path: string): Promise<void> {
 	if (bufferCache.has(path) || pending.has(path) || editor.waveforms[path]) return;
 	pending.add(path);
 	try {
-		const res = await fetch(src);
-		const bytes = await res.arrayBuffer();
-		const buffer = await audioCtx().decodeAudioData(bytes);
+		const pcm = new Int16Array(
+			await invoke<ArrayBuffer>('extract_audio', { path, sampleRate: WAVEFORM.sampleRate })
+		);
+		if (pcm.length === 0) return;
+		const buffer = new AudioBuffer({ length: pcm.length, sampleRate: WAVEFORM.sampleRate });
+		const data = buffer.getChannelData(0);
+		for (let i = 0; i < pcm.length; i++) data[i] = pcm[i] / 32768;
 		bufferCache.set(path, buffer);
-		editor.setWaveform(path, await extractPeaks(buffer));
+		editor.setWaveform(path, computePeaks(data));
 	} catch {
-		// No audio stream, CORS, or decode failure: leave the clip without a waveform.
+		// No audio stream or decode failure: leave the clip without a waveform.
 	} finally {
 		pending.delete(path);
 	}

@@ -141,7 +141,7 @@ export async function importPaths(paths: string[]): Promise<void> {
 				void extractThumbs(id, path, duration);
 			}
 			// Extract the waveform in the background (don't block import).
-			void ensureWaveform(src, path);
+			void ensureWaveform(path);
 		} finally {
 			editor.importing--;
 		}

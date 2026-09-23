@@ -119,6 +119,8 @@ export const LAYOUT = {
 } as const;
 
 export const WAVEFORM = {
+	/** Mono PCM rate each source is decoded to (waveform peaks + scrub grains). */
+	sampleRate: 16000,
 	/** Peak buckets sampled per source for the timeline waveform. */
 	resolution: 1200,
 	/** Max samples inspected per bucket (stride caps the one-time decode cost). */
